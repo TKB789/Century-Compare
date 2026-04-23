@@ -1,4 +1,4 @@
-name: Build and Deploy Centure Compare
+name: Build and Deploy Century Compare
 
 on:
   push:
