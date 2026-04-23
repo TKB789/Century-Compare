@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 // set base to '/<repo-name>/'. If deploying to a custom domain or user site
 // (<username>.github.io), leave base as '/'.
 // Change this to match your repo name:
-const REPO_NAME = 'century-compare'
+const REPO_NAME = 'Century-Compare'
 
 export default defineConfig({
   plugins: [react()],
