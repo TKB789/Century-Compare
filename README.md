@@ -1,42 +1,85 @@
 # A Century Apart
 
-Enter a year. See it exactly a century before, and again, and again — from today back to the Big Bang.
+Enter a year. See it alongside every century before and after, back to 500 BCE and forward to the current year.
 
-A single-page React app that cascades through history one century at a time. Curated key events for anchor years, plus live Wikipedia fallback for any other year.
+Events are ranked by Wikipedia pageview popularity. The data is pre-computed via a GitHub Action so the site loads instantly.
 
-## Features
+## First-time setup (once per repo)
 
-- **Exact-century cascade** — enter 1969, see 1969 → 1869 → 1769 → 1669 → ...
-- **BCE support** — type "44 BCE" or "500 BC"; the timeline walks back through the Common Era boundary
-- **Curated + live data** — hand-picked events for major anchor years; Wikipedia REST API fills in everything else
-- **Current year is live** — shows events from the in-progress year, updated each time you load the page
-- **Deep time** — beyond recorded history, unlock 12 eras from the Iron Age to the Big Bang
+### 1. Upload all these files to your GitHub repo
 
-## Deploying to GitHub Pages
+Create a new repo (or use your existing one). Upload the entire contents of this folder — keep the folder structure intact (`src/`, `scripts/`, `.github/workflows/`, `public/`, etc.).
 
-### One-time setup
+If you're using GitHub's web UI: click "Add file" → "Upload files" → drag the whole folder in. GitHub preserves the folder structure automatically.
 
-1. Create a new repo on GitHub (e.g. `century-compare`).
-2. Push this code to the repo:
+### 2. Set the repo name in `vite.config.js`
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/century-compare.git
-   git push -u origin main
-   ```
+Open `vite.config.js` in GitHub's file editor (click the file → click the pencil icon). Find this line near the top:
 
-3. In `vite.config.js`, make sure `REPO_NAME` matches your repo name. If you named the repo something other than `century-compare`, edit that one line.
+```js
+const REPO_NAME = "century-compare";
+```
 
-4. In your GitHub repo: go to **Settings → Pages**. Under "Build and deployment", set **Source** to **GitHub Actions**.
+Change `"century-compare"` to whatever your repo is actually named. For example, if your repo URL is `https://github.com/yourname/my-history-site`, change it to `"my-history-site"`. Commit the change.
 
-5. That's it. Push to `main` and the included workflow (`.github/workflows/deploy.yml`) will build and deploy automatically.
+### 3. Enable GitHub Pages
 
-Your site will be live at `https://YOUR_USERNAME.github.io/century-compare/` within a minute or two.
+In your repo, go to **Settings → Pages**. Under "Build and deployment", set **Source** to **GitHub Actions**. Save.
 
-### Local development
+### 4. Enable Actions write permissions
+
+In your repo, go to **Settings → Actions → General**. Scroll to "Workflow permissions" near the bottom. Select **Read and write permissions** and click Save. This lets the build workflow commit `events.json` back to your repo.
+
+### 5. First deploy (with no event data yet)
+
+Once you've uploaded the files, GitHub will automatically run the Deploy workflow. In a few minutes your site will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/`.
+
+At this point the site works but uses live Wikipedia fetches for every year (slow). Next step: generate the pre-computed `events.json`.
+
+## Generate the events.json file (the cool part)
+
+This is the "click a button to run a script on GitHub's servers" part.
+
+### 1. Go to the Actions tab
+
+Open your repo. Click the **Actions** tab at the top.
+
+### 2. Pick the "Build events.json" workflow
+
+In the left sidebar under "All workflows", click **Build events.json**.
+
+### 3. Run it
+
+Click the **Run workflow** dropdown button on the right. You'll see two input fields:
+
+- **Start year**: `-500` (this is 500 BCE — negative numbers are BCE)
+- **End year**: `2025`
+
+Leave the defaults, or change them if you want a smaller range. Click **Run workflow**.
+
+### 4. Wait
+
+The job takes roughly 2–2.5 hours to complete. You can close your browser — it runs on GitHub's servers. Come back later and check the Actions tab.
+
+While it's running, you'll see a yellow dot next to the workflow run. When it's done, it turns into a green checkmark. If something goes wrong, it's a red X — click the run to see the error log.
+
+### 5. Verify the commit
+
+When the run finishes, check your repo's main branch. You should see a new commit titled "Update events.json (-500 to 2025)". The file `public/events.json` will now have a few hundred KB of pre-computed event data.
+
+### 6. Redeploy
+
+The commit automatically triggers the Deploy workflow. After another 1–2 minutes, your site will have instant event loads for every year from 500 BCE to 2025.
+
+## Re-running the build
+
+You can re-run the build any time — for example, when 2026 ends and you want to add that year, or if Wikipedia's content has significantly updated. Just go to Actions → Build events.json → Run workflow again.
+
+The script is **resumable**: it reads your existing `events.json` and only computes years that aren't already in it. So if you just want to add 2026 after running the full build, set Start year to `2026` and End year to `2026`, and it'll finish in seconds.
+
+## Local development (optional)
+
+If you want to test changes on your computer before pushing:
 
 ```bash
 npm install
@@ -45,25 +88,22 @@ npm run dev
 
 Opens at `http://localhost:5173`.
 
-### Manual build
-
-```bash
-npm run build       # output goes to ./dist
-npm run preview     # preview the production build locally
-```
-
 ## Project structure
 
 ```
 century-compare/
 ├── src/
-│   ├── CenturyCompare.jsx   # Main component with curated events + Wikipedia fetch
-│   ├── main.jsx             # React entry point
-│   └── index.css            # Tailwind directives
+│   ├── CenturyCompare.jsx   # Main React component
+│   ├── main.jsx             # React entry
+│   └── index.css
+├── scripts/
+│   └── build-events.mjs     # The pageview-ranking script
 ├── public/
-│   └── favicon.svg
+│   ├── favicon.svg
+│   └── events.json          # Generated by GitHub Action
 ├── .github/workflows/
-│   └── deploy.yml           # Auto-deploy on push to main
+│   ├── build-events.yml     # Manual "click to run" workflow
+│   └── deploy.yml           # Auto-deploys on push
 ├── index.html
 ├── package.json
 ├── vite.config.js
@@ -71,22 +111,18 @@ century-compare/
 └── postcss.config.js
 ```
 
-## Customizing events
+## How the data works
 
-All curated event data lives in the `EVENTS` object at the top of `src/CenturyCompare.jsx`. Each year is keyed by an integer (negative for BCE) and contains:
+1. When a user loads the site, the app fetches `public/events.json` (one request, small file)
+2. For any year in that file, the top 5 events display instantly
+3. For any year NOT in the file (e.g. if you limited the range, or searched beyond 2025), the app falls back to live Wikipedia fetches — slower but still works
 
-- `key`: the 5 headline events
-- `more`: 5 additional events shown when user taps "Show more"
-- `seeAlso`: cross-references to related years (same century only)
+## Troubleshooting
 
-Deep-time eras are in the `DEEP_TIME` array just below.
+**The build workflow fails with "Permission denied" when pushing.** You missed step 4 of first-time setup. Go to Settings → Actions → General → Workflow permissions → select "Read and write permissions".
 
-## Notes
+**The site shows "no data" for every year.** `events.json` is empty. Either you haven't run the Build events.json workflow yet, or it failed. Check the Actions tab.
 
-- Wikipedia's year pages are crowd-edited and vary in quality. The app fetches the "Events" section and parses the first 5 list items, so older BCE years may return less structured data than modern years.
-- The current-year block shows a "● LIVE" badge and pulls fresh from Wikipedia on every page load. No backend, no database, no cron job needed.
-- The "most recent completed year" default updates automatically based on the user's local date.
+**The site shows 404 errors for events.json.** The `base` setting in `vite.config.js` doesn't match your repo name. Double-check step 2 of first-time setup.
 
-## License
-
-Use it however you like.
+**The build workflow times out.** GitHub Actions has a 6-hour maximum per job. If 500 BCE to 2025 is taking too long, run it in two pieces: first -500 to 1000, then 1001 to 2025. The script is resumable so the second run picks up where the first left off.
