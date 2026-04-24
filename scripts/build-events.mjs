@@ -302,9 +302,15 @@ async function computeYear(year) {
   }
 
   const scored = result.candidates.map((c) => {
-    let score = (c.allLinks || [])
+    // Score = MAX pageview among the bullet's non-generic links.
+    // (Previously used SUM, which inadvertently rewarded multi-topic bullets
+    // that combined several events into one list item. Using MAX eliminates
+    // that length bias — a bullet scores by its single most-visited subject,
+    // regardless of how many other topics it mentions.)
+    const linkScores = (c.allLinks || [])
       .filter((link) => !isGenericSlug(link))
-      .reduce((sum, link) => sum + (pageviews[link] || 0), 0);
+      .map((link) => pageviews[link] || 0);
+    let score = linkScores.length > 0 ? Math.max(...linkScores) : 0;
     if (c.hasBold) score = Math.round(score * 1.5);
     return { ...c, _score: score };
   });
@@ -370,13 +376,20 @@ async function main() {
     }
     return false;
   };
+  // A body longer than 500 chars usually means multiple events were combined
+  // into one Wikipedia bullet (e.g. Apollo 1 fire + Outer Space Treaty signing
+  // both squeezed into one January 27 entry). Re-ranking with MAX scoring should
+  // push these down in favor of cleaner single-event entries.
+  const hasOversizedBody = (events) =>
+    events.some((e) => e && typeof e.body === "string" && e.body.length > 500);
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
     const existing_entry = existing[String(y)];
     const isGood = Array.isArray(existing_entry)
-      && existing_entry.length >= 3  // require at least 3 events (not just 1 from old dedup bug)
+      && existing_entry.length >= 3
       && existing_entry.every((e) => e && !hasBadTitle(e.title))
-      && !hasDuplicateTitles(existing_entry);
+      && !hasDuplicateTitles(existing_entry)
+      && !hasOversizedBody(existing_entry);
     if (!isGood) years.push(y);
   }
 
