@@ -1,197 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as InfinityIcon, CornerDownRight, Loader2, Info, Minus, Sparkles, TrendingUp } from "lucide-react";
+import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as InfinityIcon, Loader2, Minus, Sparkles, TrendingUp, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 // ===================================================================
-// CATEGORIES — simplified to two
-// Health/Medicine and Exploration/Space are folded into Science & Tech
+// DEEP TIME — kept static (pageviews not useful here)
 // ===================================================================
-const CATEGORIES = [
-  { key: "all", label: "All", color: "#d4a856" },
-  { key: "POL", label: "Politics & War", color: "#c9532b" },
-  { key: "SCI", label: "Science & Technology", color: "#7ba8d4" },
-];
-
-const ev = (title, detail, wiki, footnote) => ({ title, detail, wiki, footnote });
-
-// ===================================================================
-// CURATED YEARS
-// ===================================================================
-const EVENTS = {
-  "-500": {
-    events: [
-      ev("Buddha and Confucius Active", "Siddhartha Gautama teaches in northern India; Confucius develops ethical philosophy in China. The 'Axial Age' reshapes human thought across civilizations.", "Axial_Age"),
-      ev("Roman Republic Founded (509 BCE)", "Romans overthrow their last king, Tarquinius Superbus, and establish a republic that will last nearly 500 years.", "Roman_Republic"),
-      ev("Persian Empire at its Peak", "Under Darius I, the Achaemenid Empire stretches from the Indus Valley to the Balkans — the largest empire the world has yet seen.", "Achaemenid_Empire"),
-      ev("Greco-Persian Wars Begin", "Ionian Greek cities revolt against Persian rule in 499 BCE, triggering wars that will produce Marathon, Thermopylae, and Salamis.", "Greco-Persian_Wars"),
-      ev("Zapotec Civilization Rises", "Monte Albán in Oaxaca becomes one of Mesoamerica's first true urban centers.", "Monte_Alb%C3%A1n"),
-    ],
-    seeAlso: [
-      { year: -490, note: "Battle of Marathon" },
-      { year: -480, note: "Thermopylae and Salamis" },
-    ],
-  },
-  525: {
-    events: [
-      ev("Justinian Rises to Power", "Future Eastern Roman emperor takes the throne in 527; will codify Roman law and reconquer much of the Mediterranean.", "Justinian_I"),
-      ev("Volcanic Winter of 536 Approaches", "A massive eruption will darken skies globally next decade, causing crop failures from China to Ireland.", "Volcanic_winter_of_536"),
-      ev("Gupta Empire Collapses", "India's classical golden age of mathematics, astronomy, and art fades under Hun invasions.", "Gupta_Empire"),
-      ev("Buddhism Flourishes in East Asia", "Mahayana Buddhism deepens roots in China and is about to reach Japan officially (538 CE).", "Buddhism_in_China"),
-      ev("Maya Classic Period Peaks", "Tikal and Palenque thrive as centers of astronomy, writing, and monumental architecture.", "Maya_civilization"),
-    ],
-    seeAlso: [
-      { year: 541, note: "Plague of Justinian begins" },
-      { year: 622, note: "Muhammad's Hijra — Islamic Year 1" },
-    ],
-  },
-  1225: {
-    events: [
-      ev("Mongol Empire Expands", "Genghis Khan's conquests reshape Eurasia; he will die in 1227 leaving the largest contiguous land empire in history.", "Mongol_Empire"),
-      ev("Thomas Aquinas Born", "Future philosopher will synthesize Aristotle and Christian thought, shaping Western philosophy for centuries.", "Thomas_Aquinas"),
-      ev("Magna Carta Reissued", "King Henry III confirms the 1215 charter, cementing its role in English constitutional law.", "Magna_Carta"),
-      ev("Delhi Sultanate Consolidates", "Under Iltutmish, the Turkic-led sultanate becomes the dominant power in northern India.", "Delhi_Sultanate"),
-      ev("Kamakura Shogunate Rules Japan", "Hōjō clan governs as regents; samurai culture and Zen Buddhism are taking shape.", "Kamakura_shogunate"),
-    ],
-    seeAlso: [
-      { year: 1215, note: "Magna Carta signed" },
-      { year: 1258, note: "Mongol sack of Baghdad" },
-    ],
-  },
-  1525: {
-    events: [
-      ev("Mughal Empire Founded", "Babur defeats the Delhi Sultanate at Panipat (1526), founding an empire that will rule much of India for three centuries.", "Mughal_Empire"),
-      ev("German Peasants' War Crushed", "Largest European popular uprising before the French Revolution ends with ~100,000 peasants killed.", "German_Peasants%27_War"),
-      ev("Reformation Spreads", "Luther's movement has fractured Western Christianity; Tyndale prints the first English New Testament this year.", "Reformation"),
-      ev("Inca Empire at Its Height", "Huayna Capac rules from Ecuador to Chile — but smallpox from Spanish contact will soon devastate the empire.", "Inca_Empire"),
-      ev("Suleiman the Magnificent Ascendant", "Ottoman sultan is at the peak of his 46-year reign; will besiege Vienna in 1529.", "Suleiman_the_Magnificent"),
-    ],
-    seeAlso: [
-      { year: 1517, note: "Luther's 95 Theses" },
-      { year: 1521, note: "Fall of Tenochtitlan" },
-    ],
-  },
-  1625: {
-    events: [
-      ev("Charles I Crowned in England", "His reign will end in civil war and public execution in 1649 — a revolution in royal accountability.", "Charles_I_of_England"),
-      ev("Thirty Years' War Rages", "Europe's deadliest religious conflict continues; will kill up to 8 million before ending in 1648.", "Thirty_Years%27_War"),
-      ev("Dutch Buy Manhattan (1626)", "Peter Minuit 'purchases' Manhattan from Lenape people for ~60 guilders — founding of New Amsterdam.", "Manhattan"),
-      ev("Ming Dynasty Weakens", "Famines, peasant revolts, and Manchu pressure erode the dynasty, which will fall in 1644.", "Ming_dynasty"),
-      ev("Safavid Persia Flourishes", "Under Abbas I, Isfahan becomes one of the world's great cities; Persian art and architecture reach a pinnacle.", "Abbas_I_of_Persia"),
-    ],
-    seeAlso: [
-      { year: 1620, note: "Mayflower lands at Plymouth" },
-      { year: 1649, note: "Execution of Charles I" },
-    ],
-  },
-  1725: {
-    events: [
-      ev("Peter the Great Dies", "Russian tsar who westernized the empire dies; succeeded by his wife Catherine I.", "Peter_the_Great"),
-      ev("Qing China at its Zenith", "Under the Yongzheng Emperor, imperial China is the world's largest economy and nearing its greatest territorial extent.", "Qing_dynasty"),
-      ev("Enlightenment Takes Shape", "Voltaire is imprisoned in the Bastille (1726); Montesquieu is writing. The Age of Reason is underway.", "Age_of_Enlightenment"),
-      ev("Bach in Leipzig", "J.S. Bach composes cantatas and passions that define Baroque music at the height of his powers.", "Johann_Sebastian_Bach"),
-      ev("Tokugawa Japan in Seclusion", "Shogunate's sakoku policy keeps Japan largely closed; domestic urban culture flourishes in Edo.", "Sakoku"),
-    ],
-    seeAlso: [
-      { year: 1720, note: "South Sea Bubble bursts" },
-      { year: 1776, note: "American Declaration of Independence" },
-    ],
-  },
-  1825: {
-    events: [
-      ev("Stockton–Darlington Railway Opens", "First public railway to use steam locomotives — the railway age begins.", "Stockton_and_Darlington_Railway"),
-      ev("Latin American Independence Won", "Simón Bolívar's armies complete the liberation of most of Spanish South America.", "Spanish_American_wars_of_independence"),
-      ev("Decembrist Revolt in Russia", "Liberal army officers try to block Nicholas I's accession — crushed, but seeds later Russian reform movements.", "Decembrist_revolt"),
-      ev("Haiti Forced to Pay Indemnity", "France demands 150 million francs for 'lost' slave-produced wealth — a debt that will cripple Haiti for 120 years.", "Haiti_indemnity_controversy"),
-      ev("Java War Begins", "Prince Diponegoro leads a five-year rebellion against Dutch colonial rule — one of the costliest colonial wars of the century.", "Java_War"),
-    ],
-    seeAlso: [
-      { year: 1820, note: "Missouri Compromise" },
-      { year: 1848, note: "Revolutions sweep Europe" },
-    ],
-  },
-  1925: {
-    events: [
-      ev("The Great Gatsby Published", "F. Scott Fitzgerald's novel captures the Jazz Age — later called the Great American Novel.", "The_Great_Gatsby"),
-      ev("Mein Kampf Published", "Hitler's manifesto lays out his ideology from prison. Largely ignored at the time.", "Mein_Kampf"),
-      ev("Television Demonstrated", "Scottish engineer John Logie Baird demonstrates the first working television system.", "History_of_television"),
-      ev("Quantum Mechanics Takes Shape", "Heisenberg formulates matrix mechanics; Schrödinger will follow with wave mechanics in 1926 — a revolution in physics.", "Matrix_mechanics"),
-      ev("Scopes 'Monkey Trial'", "Tennessee teacher John Scopes prosecuted for teaching evolution — a national spectacle over science and religion.", "Scopes_trial"),
-    ],
-    seeAlso: [
-      { year: 1918, note: "Spanish flu pandemic" },
-      { year: 1929, note: "Wall Street Crash" },
-    ],
-  },
-  2021: {
-    events: [
-      ev("January 6 U.S. Capitol Attack", "Rioters supporting Donald Trump storm the U.S. Capitol to disrupt Electoral College certification. Five die. Marks an unprecedented rupture in American democratic tradition.", "January_6_United_States_Capitol_attack"),
-      ev("Biden Becomes President", "Joe Biden inaugurated as 46th U.S. president on January 20. Rejoins the Paris Agreement and WHO on day one; ends the war in Afghanistan by August.", "Presidency_of_Joe_Biden"),
-      ev("Taliban Retakes Afghanistan", "After U.S. withdrawal in August, the Taliban captures Kabul in 11 days. 20 years of Western intervention collapse; chaotic evacuations follow.", "Fall_of_Kabul_(2021)"),
-      ev("COVID-19 Vaccines Roll Out Globally", "Mass vaccination campaigns begin worldwide. By year's end, over 8.5 billion doses administered — but Delta and Omicron variants extend the pandemic.", "COVID-19_vaccine"),
-      ev("Civilian Spaceflight Goes Mainstream", "SpaceX's Inspiration4 sends the first all-civilian crew to orbit. Blue Origin and Virgin Galactic also begin suborbital tourist flights.", "Inspiration4"),
-    ],
-    seeAlso: [
-      { year: 2020, note: "COVID-19 pandemic declared" },
-      { year: 2001, note: "September 11 attacks" },
-    ],
-  },
-  2022: {
-    events: [
-      ev("Russia Invades Ukraine", "On February 24, Vladimir Putin launches a full-scale invasion. Largest war in Europe since WWII. Millions flee as NATO rallies behind Kyiv.", "Russian_invasion_of_Ukraine"),
-      ev("Queen Elizabeth II Dies", "Britain's longest-serving monarch dies September 8 at 96, ending a 70-year reign. Charles III ascends the throne.", "Death_and_state_funeral_of_Elizabeth_II"),
-      ev("ChatGPT Launched", "OpenAI releases ChatGPT on November 30. Reaches 100 million users in two months — the fastest consumer product adoption in history.", "ChatGPT"),
-      ev("Roe v. Wade Overturned", "U.S. Supreme Court reverses 1973 abortion rights precedent in Dobbs v. Jackson, returning the issue to states.", "Dobbs_v._Jackson_Women%27s_Health_Organization"),
-      ev("Iran Protests Spread", "Death of Mahsa Amini in police custody triggers the largest challenge to the Iranian regime since 1979. Hundreds killed in crackdowns.", "Mahsa_Amini_protests"),
-    ],
-    seeAlso: [
-      { year: 2023, note: "Israel–Hamas war begins" },
-      { year: 1979, note: "Iranian Revolution" },
-    ],
-  },
-  2023: {
-    events: [
-      ev("Hamas Attack; Israel–Gaza War", "On October 7, Hamas launches a surprise assault on Israel, killing ~1,200 and taking hostages. Israel's response devastates Gaza; conflict will reshape the Middle East.", "Israel%E2%80%93Hamas_war"),
-      ev("AI Year of Breakthrough", "GPT-4 launches in March; Google releases Bard; Midjourney v5 and Stable Diffusion XL redefine AI image generation. AI enters mainstream life and law.", "GPT-4"),
-      ev("Turkey–Syria Earthquake", "On February 6, a magnitude 7.8 quake kills ~62,000 across Turkey and Syria — the 5th-deadliest earthquake of the 21st century.", "2023_Turkey%E2%80%93Syria_earthquakes"),
-      ev("India Passes China in Population", "India becomes the world's most populous country, with ~1.43 billion people. Demographic shift will reshape the 21st century.", "Demographics_of_India"),
-      ev("WHO Ends COVID Global Emergency", "On May 5, the World Health Organization declares the COVID-19 public health emergency over after 3+ years. Over 7 million confirmed dead worldwide.", "COVID-19_pandemic"),
-    ],
-    seeAlso: [
-      { year: 2020, note: "COVID-19 pandemic begins" },
-      { year: 1948, note: "Founding of Israel" },
-    ],
-  },
-  2024: {
-    events: [
-      ev("Trump Re-elected to Presidency", "Donald Trump wins the November U.S. election, defeating Kamala Harris. Becomes the first convicted felon elected president, and the first to win non-consecutive terms since Grover Cleveland.", "2024_United_States_presidential_election"),
-      ev("Fall of Assad in Syria", "After 53 years of Ba'ath Party rule, Bashar al-Assad flees to Moscow in December as rebels led by HTS sweep through Damascus in 11 days.", "Fall_of_the_Assad_regime"),
-      ev("Climate Crosses 1.5°C Threshold", "2024 becomes the first calendar year with average global temperature 1.5°C above pre-industrial levels — the Paris Agreement's symbolic red line.", "Climate_change"),
-      ev("Hottest Year on Record", "Hurricane Helene and Milton batter the U.S.; floods in Spain; wildfires across the Amazon. Record-breaking extreme weather affirms accelerating climate change.", "2024_Atlantic_hurricane_season"),
-      ev("Paris Summer Olympics", "First Olympics after COVID's disruption, held in Paris. Opening ceremony along the Seine; Simone Biles returns; a rare moment of global cooperation.", "2024_Summer_Olympics"),
-    ],
-    seeAlso: [
-      { year: 2020, note: "COVID-19 disrupts prior Olympics" },
-      { year: 2011, note: "Start of Syrian civil war" },
-    ],
-  },
-  2025: {
-    events: [
-      ev("Trump Returns to the White House", "Inaugurated January 20 as the 47th U.S. president — the second to serve non-consecutive terms. Sweeping tariffs, mass deportations, and overhauls of federal agencies reshape global politics.", "Second_presidency_of_Donald_Trump"),
-      ev("Global AI Spending Explodes", "AI-related investment reaches ~$1.5 trillion for the year. Nvidia briefly crosses a $5 trillion valuation. DeepSeek, a Chinese model, rivals ChatGPT.", "Artificial_intelligence"),
-      ev("Pope Francis Dies; Leo XIV Elected", "Pope Francis dies at 88 on April 21. Chicago-born Robert Prevost is elected May 8 as Pope Leo XIV — first American pope.", "Pope_Leo_XIV"),
-      ev("Gaza Ceasefire Reached", "After two years of war and ~70,000 deaths, U.S.-mediated ceasefire takes effect. Hostages return, humanitarian aid flows in — but the truce remains fragile.", "Gaza_war"),
-      ev("LA Wildfires Devastate California", "January fires in Pacific Palisades and Eaton Canyon kill 30, burn ~50,000 acres, and cause $100B+ in damages.", "January_2025_Southern_California_wildfires"),
-    ],
-    seeAlso: [
-      { year: 2020, note: "COVID-19 pandemic" },
-      { year: 2001, note: "September 11 attacks" },
-      { year: 2008, note: "Global financial crisis" },
-    ],
-  },
-};
-
-// ===================================================================
-// DEEP TIME (unchanged)
-// ===================================================================
+const ev = (title, detail, wiki) => ({ title, detail, wiki });
 const DEEP_TIME = [
   { yearsAgo: 3000, label: "c. 1000 BCE", era: "Iron Age",
     key: [
@@ -199,13 +12,13 @@ const DEEP_TIME = [
       ev("Phoenician Alphabet", "A 22-letter script developed in the Levant becomes the ancestor of Greek, Latin, Arabic, and Hebrew writing.", "Phoenician_alphabet"),
       ev("Composition of the Rigveda", "Sanskrit hymns transmitted orally for centuries are among the oldest surviving religious texts.", "Rigveda"),
       ev("Bronze Age Collapse Aftermath", "Late Bronze Age civilizations of the eastern Mediterranean collapsed ~1177 BCE; survivors are rebuilding.", "Late_Bronze_Age_collapse"),
-      ev("Olmec Civilization Rises", "First major Mesoamerican culture flourishes in what is now Mexico — stone heads, calendar, rubber ball games.", "Olmecs"),
+      ev("Olmec Civilization Rises", "First major Mesoamerican culture flourishes in what is now Mexico.", "Olmecs"),
     ],
   },
   { yearsAgo: 5000, label: "c. 3000 BCE", era: "Dawn of Writing",
     key: [
       ev("Cuneiform Writing Emerges", "Sumerians in Mesopotamia develop wedge-shaped writing on clay tablets — the first known writing system.", "Cuneiform"),
-      ev("Egyptian Hieroglyphs", "Parallel writing system emerges in Egypt; the Old Kingdom and pyramid-building will soon follow.", "Egyptian_hieroglyphs"),
+      ev("Egyptian Hieroglyphs", "Parallel writing system emerges in Egypt.", "Egyptian_hieroglyphs"),
       ev("The Bronze Age Begins", "Copper and tin alloy reshapes tools, weapons, and trade routes across Eurasia.", "Bronze_Age"),
       ev("Wheeled Vehicles Spread", "Evidence of wheeled carts from Mesopotamia to the Pontic steppe transforms transport and warfare.", "History_of_the_wheel"),
       ev("Indus Valley Civilization Rising", "Planned cities at Harappa and Mohenjo-Daro feature drainage, standardized bricks, and writing we still can't read.", "Indus_Valley_Civilisation"),
@@ -213,36 +26,36 @@ const DEEP_TIME = [
   },
   { yearsAgo: 10000, label: "c. 8000 BCE", era: "Agricultural Revolution",
     key: [
-      ev("Agriculture Begins", "In the Fertile Crescent, humans start domesticating wheat, barley, sheep, and goats — the Neolithic Revolution.", "Neolithic_Revolution"),
-      ev("End of the Last Ice Age", "The Pleistocene ends; glaciers retreat; sea levels rise dramatically; climate stabilizes into the Holocene.", "Last_Glacial_Period"),
-      ev("Göbekli Tepe Built", "Massive stone temple complex in Turkey predates agriculture — upending theories about why humans first built monuments.", "G%C3%B6bekli_Tepe"),
-      ev("Jericho Settled", "One of the oldest continuously inhabited cities begins as a permanent settlement around a spring.", "Jericho"),
-      ev("Megafauna Extinctions", "Mammoths, saber-toothed cats, giant sloths, and many other large mammals go extinct — likely a mix of climate and human hunting.", "Quaternary_extinction_event"),
+      ev("Agriculture Begins", "In the Fertile Crescent, humans start domesticating wheat, barley, sheep, and goats.", "Neolithic_Revolution"),
+      ev("End of the Last Ice Age", "The Pleistocene ends; glaciers retreat; sea levels rise dramatically.", "Last_Glacial_Period"),
+      ev("Göbekli Tepe Built", "Massive stone temple complex in Turkey predates agriculture.", "G%C3%B6bekli_Tepe"),
+      ev("Jericho Settled", "One of the oldest continuously inhabited cities begins as a permanent settlement.", "Jericho"),
+      ev("Megafauna Extinctions", "Mammoths, saber-toothed cats, giant sloths, and many other large mammals go extinct.", "Quaternary_extinction_event"),
     ],
   },
   { yearsAgo: 50000, label: "c. 48,000 BCE", era: "Upper Paleolithic",
     key: [
       ev("Cognitive Revolution", "Modern humans develop symbolic thought, complex language, art, and long-range trade networks.", "Behavioral_modernity"),
-      ev("Cave Art Flourishes", "Paintings in caves like Chauvet (France) and Sulawesi (Indonesia) show stunning artistic sophistication.", "Cave_painting"),
-      ev("Homo Sapiens Reaches Australia", "Humans cross open ocean to colonize Australia — one of the earliest known sea voyages.", "Prehistory_of_Australia"),
-      ev("Neanderthals Begin to Disappear", "Our closest cousins fade from the fossil record around 40,000 years ago, leaving only traces in our DNA.", "Neanderthal_extinction"),
+      ev("Cave Art Flourishes", "Paintings in caves like Chauvet and Sulawesi show stunning artistic sophistication.", "Cave_painting"),
+      ev("Homo Sapiens Reaches Australia", "Humans cross open ocean to colonize Australia.", "Prehistory_of_Australia"),
+      ev("Neanderthals Begin to Disappear", "Our closest cousins fade from the fossil record around 40,000 years ago.", "Neanderthal_extinction"),
       ev("First Musical Instruments", "Bone flutes found in Germany are among the oldest known instruments.", "Prehistoric_music"),
     ],
   },
   { yearsAgo: 300000, label: "c. 300,000 BCE", era: "Emergence of Homo Sapiens",
     key: [
-      ev("Anatomically Modern Humans", "Earliest known Homo sapiens fossils from Jebel Irhoud, Morocco. Our species is born.", "Homo_sapiens"),
-      ev("Control of Fire Mastered", "Regular, controlled use of fire for cooking, warmth, and protection is well established among hominins.", "Control_of_fire_by_early_humans"),
+      ev("Anatomically Modern Humans", "Earliest known Homo sapiens fossils from Jebel Irhoud, Morocco.", "Homo_sapiens"),
+      ev("Control of Fire Mastered", "Regular, controlled use of fire is well established among hominins.", "Control_of_fire_by_early_humans"),
       ev("Multiple Human Species Coexist", "Homo erectus, Neanderthals, Denisovans, and others share the planet.", "Hominini"),
       ev("Stone Tool Sophistication", "Middle Stone Age toolmakers produce hafted spears and refined hand axes.", "Stone_tool"),
-      ev("Ice Ages Come and Go", "Cycles of glacial and interglacial periods drive migration and adaptation across continents.", "Quaternary_glaciation"),
+      ev("Ice Ages Come and Go", "Cycles of glacial and interglacial periods drive migration and adaptation.", "Quaternary_glaciation"),
     ],
   },
   { yearsAgo: 2_000_000, label: "c. 2 million BCE", era: "Early Stone Age",
     key: [
       ev("Homo Habilis, 'Handy Man'", "Early human ancestors in Africa use simple stone tools.", "Homo_habilis"),
-      ev("First Stone Tools", "Deliberately chipped stones used for cutting and scraping mark the start of the archaeological record.", "Oldowan"),
-      ev("Savanna Adaptation", "Bipedalism frees hands for tool use; brains grow larger, requiring more calories.", "Bipedalism"),
+      ev("First Stone Tools", "Deliberately chipped stones mark the start of the archaeological record.", "Oldowan"),
+      ev("Savanna Adaptation", "Bipedalism frees hands for tool use; brains grow larger.", "Bipedalism"),
       ev("Pleistocene Begins", "Epoch of repeated ice ages begins.", "Pleistocene"),
       ev("Homo Erectus Emerges", "Longer-legged, larger-brained ancestor will spread out of Africa.", "Homo_erectus"),
     ],
@@ -276,7 +89,7 @@ const DEEP_TIME = [
   },
   { yearsAgo: 3_800_000_000, label: "3.8 billion BCE", era: "Origin of Life",
     key: [
-      ev("Earliest Life Emerges", "Chemical self-replicators in warm vents or tidal pools become the first cells.", "Abiogenesis"),
+      ev("Earliest Life Emerges", "Chemical self-replicators become the first cells.", "Abiogenesis"),
       ev("Late Heavy Bombardment Ending", "A period of intense asteroid impacts is tapering off.", "Late_Heavy_Bombardment"),
       ev("Oceans Form", "Water vapor condenses into the first oceans.", "Origin_of_water_on_Earth"),
       ev("Atmosphere Thickens", "Volcanic outgassing creates an atmosphere.", "Atmosphere_of_Earth"),
@@ -304,55 +117,47 @@ const DEEP_TIME = [
 ];
 
 // ===================================================================
-// SIGNIFICANT EVENTS (only POL and SCI categories now)
+// SIGNIFICANT EVENTS — one anchor per century for coverage.
+// These are "century representatives" — the site ranks them at runtime,
+// but we seed the list so every century is represented.
 // ===================================================================
-const SIGNIFICANT_EVENTS = [
-  { year: 2024, cat: "POL", label: "Fall of Assad; Trump re-elected" },
-  { year: 2022, cat: "POL", label: "Russia invades Ukraine" },
-  { year: 2020, cat: "SCI", label: "COVID-19 pandemic declared" },
-  { year: 2001, cat: "POL", label: "September 11 attacks" },
-  { year: 1989, cat: "POL", label: "Fall of the Berlin Wall" },
-  { year: 1969, cat: "SCI", label: "Moon landing (Apollo 11)" },
-  { year: 1945, cat: "POL", label: "End of WWII, atomic age" },
-  { year: 1918, cat: "SCI", label: "Flu pandemic, WWI ends" },
-  { year: 1905, cat: "SCI", label: "Einstein's miracle year (relativity)" },
-  { year: 1876, cat: "SCI", label: "Telephone invented" },
-  { year: 1859, cat: "SCI", label: "Darwin publishes On the Origin of Species" },
-  { year: 1776, cat: "POL", label: "U.S. Declaration of Independence" },
-  { year: 1687, cat: "SCI", label: "Newton's Principia published" },
-  { year: 1492, cat: "SCI", label: "Columbus reaches the Americas" },
-  { year: 1455, cat: "SCI", label: "Gutenberg Bible printed" },
-  { year: 1347, cat: "SCI", label: "Black Death begins in Europe" },
-  { year: 1215, cat: "POL", label: "Magna Carta signed" },
-  { year: 1066, cat: "POL", label: "Norman Conquest of England" },
-  { year: 622, cat: "POL", label: "Muhammad's Hijra — Islamic Year 1" },
-  { year: 476, cat: "POL", label: "Fall of Western Roman Empire" },
-  { year: -44, cat: "POL", label: "Assassination of Julius Caesar" },
-  { year: -221, cat: "POL", label: "Qin unifies China" },
-  { year: -323, cat: "POL", label: "Death of Alexander the Great" },
-  { year: -500, cat: "POL", label: "Axial Age: Buddha & Confucius" },
-  { year: -776, cat: "POL", label: "First Olympic Games" },
-  { year: -1754, cat: "POL", label: "Code of Hammurabi" },
+const SIGNIFICANT_YEARS = [
+  // Each entry is a year we suggest — the actual event will be fetched and ranked live
+  // Covers every century from ancient to modern
+  2024, 2020, 2001, 1989, 1969, 1945, 1918, 1905, 1876, 1859,
+  1776, 1687, 1492, 1455, 1347, 1215, 1066, 1054, 960, 800,
+  622, 476, 313, 100, -44, -221, -323, -500, -776,
 ];
 
 // ===================================================================
 // HELPERS
 // ===================================================================
-function currentDefaultYear() { return new Date().getFullYear() - 1; }
 function currentYear() { return new Date().getFullYear(); }
 function formatToday() {
   return new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
+// Wikipedia page name candidates. Order matters — we try these in sequence.
+// For ambiguous short years (like "12"), AD_12 must come first.
 function wikiSlugCandidates(year) {
-  if (year > 0) return [String(year), `AD_${year}`];
-  const abs = Math.abs(year);
-  return [`${abs}_BC`, `${abs}_BCE`];
+  if (year < 0) {
+    const abs = Math.abs(year);
+    return [`${abs}_BC`, `${abs}_BCE`];
+  }
+  if (year < 1000) {
+    // Small integers disambiguate away from the number page
+    return [`AD_${year}`, String(year), `${year}_(year)`];
+  }
+  return [String(year)];
 }
 function yearToWikiSlug(year) { return wikiSlugCandidates(year)[0]; }
 
 function formatYear(year) {
   if (year > 0) return String(year);
+  return `${Math.abs(year)} BCE`;
+}
+function formatYearWithEra(year) {
+  if (year > 0) return `${year} CE`;
   return `${Math.abs(year)} BCE`;
 }
 
@@ -368,12 +173,11 @@ function parseYearInput(raw) {
 }
 
 // ===================================================================
-// CACHE — uses localStorage when available (deployed site),
-// in-memory fallback otherwise (artifact sandbox)
+// CACHE (localStorage on deployed site, in-memory in sandbox)
 // ===================================================================
 const memoryCache = new Map();
-const CACHE_VERSION = "v1";
-const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CACHE_VERSION = "v2";
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function cacheGet(key) {
   try {
@@ -384,6 +188,7 @@ function cacheGet(key) {
       localStorage.removeItem(`cc:${CACHE_VERSION}:${key}`);
       return null;
     }
+    memoryCache.set(key, parsed.v);
     return parsed.v;
   } catch {
     return memoryCache.get(key) ?? null;
@@ -394,16 +199,43 @@ function cacheSet(key, value) {
   const payload = { t: Date.now(), v: value };
   try {
     localStorage.setItem(`cc:${CACHE_VERSION}:${key}`, JSON.stringify(payload));
-  } catch {
-    // localStorage blocked (artifact sandbox) — fall back to memory
-  }
+  } catch { /* sandboxed — memory only */ }
   memoryCache.set(key, value);
 }
 
 // ===================================================================
-// EVENT TEXT PARSING
+// LINK FILTERING — avoid generic/calendar links when picking event anchors
 // ===================================================================
-function parseWikiEvent(raw, fallbackSlug) {
+const GENERIC_SLUGS = new Set([
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+  "Common_Era", "Anno_Domini", "BC", "BCE", "AD", "CE",
+  // Very common country/region links that are usually irrelevant anchors
+  "United_States", "United_Kingdom", "England", "France", "Germany",
+  "China", "Japan", "India", "Russia", "Europe", "Asia", "Africa",
+  "North_America", "South_America",
+]);
+
+function isGenericSlug(slug) {
+  if (!slug) return true;
+  if (GENERIC_SLUGS.has(slug)) return true;
+  // Pure numeric slugs (year links) are generic
+  if (/^\d+$/.test(slug)) return true;
+  // "15_January" style day-month anchors are generic
+  if (/^\d{1,2}_[A-Z]/.test(slug)) return true;
+  if (/^(January|February|March|April|May|June|July|August|September|October|November|December)_\d/.test(slug)) return true;
+  // AD_XXX / XXX_BC year pages
+  if (/^(AD_)?\d+$/.test(slug) || /^\d+_(BC|BCE|AD|CE)$/.test(slug)) return true;
+  return false;
+}
+
+// ===================================================================
+// EVENT TEXT PARSING
+// Returns { datePrefix, body } — the whole event, capped at 3 sentences.
+// The UI renders datePrefix as a small label, body as the main content.
+// ===================================================================
+function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
   let datePrefix = null;
@@ -412,30 +244,23 @@ function parseWikiEvent(raw, fallbackSlug) {
     datePrefix = dateMatch[1].trim();
     body = dateMatch[2].trim();
   }
-  const firstSentenceMatch = body.match(/^(.+?[.!?])(\s|$)(.*)/s);
-  let title, detail;
-  if (firstSentenceMatch) {
-    title = firstSentenceMatch[1].trim();
-    detail = (firstSentenceMatch[3] || "").trim() || body;
-  } else {
-    title = body;
-    detail = body;
+  // Cap body at 3 sentences for readability
+  const sentenceMatches = body.match(/[^.!?]+[.!?]+(\s|$)/g);
+  if (sentenceMatches && sentenceMatches.length > 3) {
+    body = sentenceMatches.slice(0, 3).join("").trim();
   }
-  if (title.length > 95) {
-    const breakPoint = title.slice(0, 95).lastIndexOf(",");
-    title = breakPoint > 50 ? title.slice(0, breakPoint) + "…" : title.slice(0, 95) + "…";
-  }
-  title = title.replace(/\s*\(\d{3,4}\)$/, "");
-  const finalTitle = datePrefix ? `${datePrefix}: ${title}` : title;
-  return { title: finalTitle, detail: body, wiki: fallbackSlug };
+  return {
+    datePrefix,
+    body,
+    wiki: primaryWiki,
+    allLinks: allLinks,
+    sectionAnchor,
+  };
 }
 
 // ===================================================================
-// WIKIPEDIA FETCH + PAGEVIEW RANKING
+// FETCH CANDIDATES FROM WIKIPEDIA YEAR PAGE
 // ===================================================================
-
-// Extract all candidate events from a Wikipedia year page.
-// Returns up to ~25 candidates (to then rank by pageviews).
 async function fetchWikipediaCandidates(year) {
   const candidates = wikiSlugCandidates(year);
   for (const pageName of candidates) {
@@ -471,6 +296,9 @@ async function fetchWikipediaCandidates(year) {
       const startContainer = eventsHeading.closest(".mw-heading") || eventsHeading;
       const stopContainer = stopHeading ? (stopHeading.closest(".mw-heading") || stopHeading) : null;
 
+      // Track the current sub-section (e.g. "January") to build section anchors
+      let currentSection = null;
+
       const collected = [];
       const walker = doc.createTreeWalker(doc.body || doc.documentElement, NodeFilter.SHOW_ELEMENT);
       let started = false;
@@ -481,21 +309,30 @@ async function fetchWikipediaCandidates(year) {
           continue;
         }
         if (stopContainer && (node === stopContainer || stopContainer.contains(node))) break;
-        if (node.tagName === "LI") collected.push(node);
+        // Track subsections for anchor building
+        if (node.tagName === "H3" || node.tagName === "H4") {
+          const id = node.id || node.querySelector("[id]")?.id;
+          if (id) currentSection = id;
+        }
+        if (node.tagName === "LI") collected.push({ li: node, section: currentSection });
       }
 
-      const parsed = collected.map((li) => {
+      const parsed = collected.map(({ li, section }) => {
         li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
         const text = li.textContent.trim();
         if (!text || text.length < 25) return null;
-        // Get the most prominent/earliest wiki link — this is usually the subject of the event
-        const links = Array.from(li.querySelectorAll("a[href^='/wiki/']"))
+
+        // Collect all wiki links; filter out generic ones for anchor selection
+        const allLinkSlugs = Array.from(li.querySelectorAll("a[href^='/wiki/']"))
           .map((a) => a.getAttribute("href"))
-          .filter((h) => h && !h.includes(":")) // skip File:/Category: etc.
+          .filter((h) => h && !h.includes(":"))
           .map((h) => decodeURIComponent(h.replace("/wiki/", "").split("#")[0]));
-        const wikiSlug = links[0] || pageName;
-        const parsedEv = parseWikiEvent(text, wikiSlug);
-        return { ...parsedEv, _allLinks: links };
+
+        const nonGenericLinks = allLinkSlugs.filter((s) => !isGenericSlug(s));
+        // Primary anchor: first non-generic link, else fallback to year page
+        const primaryWiki = nonGenericLinks[0] || pageName;
+
+        return parseWikiEvent(text, primaryWiki, allLinkSlugs, section);
       }).filter(Boolean);
 
       const seen = new Set();
@@ -505,76 +342,80 @@ async function fetchWikipediaCandidates(year) {
         return true;
       });
 
-      if (unique.length > 0) return { candidates: unique.slice(0, 25), pageName };
-    } catch {
-      // try next
-    }
+      if (unique.length > 0) return { candidates: unique.slice(0, 30), pageName };
+    } catch { /* try next */ }
   }
   return { error: "No Wikipedia page found" };
 }
 
-// Fetch pageview totals for a set of article slugs.
-// Uses the Wikipedia REST pageviews API (last 60 days, aggregated).
-// Returns a map: slug → total pageviews (or 0 on failure).
-async function fetchPageviews(slugs) {
+// ===================================================================
+// PAGEVIEWS — cumulative across all non-generic links per event
+// ===================================================================
+async function fetchSinglePageview(slug) {
+  const cacheKey = `pv:${slug}`;
+  const cached = cacheGet(cacheKey);
+  if (cached !== null) return cached;
+
   const end = new Date();
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000);
   const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const startStr = fmt(start);
-  const endStr = fmt(end);
+  try {
+    const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${encodeURIComponent(slug)}/daily/${fmt(start)}/${fmt(end)}`;
+    const res = await fetch(url);
+    if (!res.ok) { cacheSet(cacheKey, 0); return 0; }
+    const data = await res.json();
+    const total = (data.items || []).reduce((sum, item) => sum + (item.views || 0), 0);
+    cacheSet(cacheKey, total);
+    return total;
+  } catch {
+    cacheSet(cacheKey, 0);
+    return 0;
+  }
+}
 
+// Fetch pageviews for many slugs with concurrency control
+async function fetchPageviewsBatch(slugs) {
   const results = {};
-  // Batch fetches with concurrency limit to avoid overwhelming Wikipedia
-  const BATCH_SIZE = 5;
-  for (let i = 0; i < slugs.length; i += BATCH_SIZE) {
-    const batch = slugs.slice(i, i + BATCH_SIZE);
+  const BATCH = 5;
+  for (let i = 0; i < slugs.length; i += BATCH) {
+    const batch = slugs.slice(i, i + BATCH);
     await Promise.all(batch.map(async (slug) => {
-      const cacheKey = `pv:${slug}`;
-      const cached = cacheGet(cacheKey);
-      if (cached !== null) {
-        results[slug] = cached;
-        return;
-      }
-      try {
-        const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${encodeURIComponent(slug)}/daily/${startStr}/${endStr}`;
-        const res = await fetch(url);
-        if (!res.ok) { results[slug] = 0; return; }
-        const data = await res.json();
-        const total = (data.items || []).reduce((sum, item) => sum + (item.views || 0), 0);
-        results[slug] = total;
-        cacheSet(cacheKey, total);
-      } catch {
-        results[slug] = 0;
-      }
+      results[slug] = await fetchSinglePageview(slug);
     }));
   }
   return results;
 }
 
-// Fetch events for a year, ranked by Wikipedia pageview popularity.
+// ===================================================================
+// RANK EVENTS BY CUMULATIVE PAGEVIEWS
+// ===================================================================
 async function fetchRankedEvents(year) {
   const cacheKey = `year:${year}`;
   const cached = cacheGet(cacheKey);
   if (cached) return { events: cached, cached: true };
 
-  const candidates = await fetchWikipediaCandidates(year);
-  if (candidates.error || !candidates.candidates) {
-    return { error: candidates.error || "No candidates found" };
+  const { candidates, error } = await fetchWikipediaCandidates(year);
+  if (error || !candidates) return { error: error || "No candidates found" };
+
+  // Gather ALL non-generic links across all candidates and fetch pageviews once
+  const allSlugs = new Set();
+  for (const c of candidates) {
+    for (const link of c.allLinks || []) {
+      if (!isGenericSlug(link)) allSlugs.add(link);
+    }
   }
+  const pageviews = await fetchPageviewsBatch([...allSlugs]);
 
-  // Gather unique slugs from top link in each event
-  const slugs = Array.from(new Set(candidates.candidates.map((c) => c.wiki).filter(Boolean)));
-  const pageviews = await fetchPageviews(slugs);
+  // Score each event: SUM of pageviews for all non-generic links in that event
+  const scored = candidates.map((c) => {
+    const score = (c.allLinks || [])
+      .filter((link) => !isGenericSlug(link))
+      .reduce((sum, link) => sum + (pageviews[link] || 0), 0);
+    return { ...c, _score: score };
+  });
 
-  // Score each event by its link's pageview count
-  const scored = candidates.candidates.map((c) => ({
-    ...c,
-    _score: pageviews[c.wiki] || 0,
-  }));
-
-  // Sort by pageviews descending, take top 5
   scored.sort((a, b) => b._score - a._score);
-  const top = scored.slice(0, 5).map(({ _score, _allLinks, ...rest }) => rest);
+  const top = scored.slice(0, 5).map(({ _score, allLinks, ...rest }) => rest);
 
   cacheSet(cacheKey, top);
   return { events: top, cached: false };
@@ -584,19 +425,26 @@ async function fetchRankedEvents(year) {
 // STACK BUILDER
 // ===================================================================
 function buildStack(anchor) {
+  const cy = currentYear();
   const items = [];
+
+  // Centuries after anchor — stop at current year, then optionally one future century
   for (let i = 3; i >= 1; i--) {
     const target = anchor + 100 * i;
-    if (target <= currentYear() + 100) {
-      items.push({ year: target, isAnchor: false, offset: 100 * i });
+    // Show if it's in the past (< cy) or exactly at cy, or one century into the future
+    if (target <= cy + 100) {
+      items.push({ year: target, isAnchor: false, offset: 100 * i, isFuture: target > cy });
     }
   }
-  items.push({ year: anchor, isAnchor: true, offset: 0 });
+
+  items.push({ year: anchor, isAnchor: true, offset: 0, isFuture: anchor > cy });
+
+  // Centuries before anchor
   let i = 1;
   while (i <= 30) {
     const target = anchor - 100 * i;
     if (target < -3000) break;
-    items.push({ year: target, isAnchor: false, offset: -100 * i });
+    items.push({ year: target, isAnchor: false, offset: -100 * i, isFuture: false });
     i++;
   }
   return items;
@@ -610,24 +458,23 @@ function formatYearsAgo(yearsAgo) {
 }
 
 // ===================================================================
-// MAIN COMPONENT
+// MAIN
 // ===================================================================
-export default function CenturyCompare() {
-  const defaultYear = currentDefaultYear();
-  const initialAnchor = EVENTS[String(defaultYear)] ? defaultYear : 2025;
+const SIGNIFICANT_PAGE_SIZE = 8;
 
+export default function CenturyCompare() {
+  // Default: current year (shows "events so far" via pageview ranking)
+  const initialAnchor = currentYear();
   const [input, setInput] = useState(String(initialAnchor));
   const [anchor, setAnchor] = useState(initialAnchor);
   const [expanded, setExpanded] = useState(null);
   const [showDeepTime, setShowDeepTime] = useState(false);
-  const [activeCat, setActiveCat] = useState("all");
+  const [sigPage, setSigPage] = useState(0);
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
-  const filteredSignificant = useMemo(() => {
-    if (activeCat === "all") return SIGNIFICANT_EVENTS;
-    return SIGNIFICANT_EVENTS.filter((e) => e.cat === activeCat);
-  }, [activeCat]);
+  const totalSigPages = Math.ceil(SIGNIFICANT_YEARS.length / SIGNIFICANT_PAGE_SIZE);
+  const pageYears = SIGNIFICANT_YEARS.slice(sigPage * SIGNIFICANT_PAGE_SIZE, (sigPage + 1) * SIGNIFICANT_PAGE_SIZE);
 
   const submit = (e) => {
     e?.preventDefault();
@@ -661,10 +508,11 @@ export default function CenturyCompare() {
           A Century <em className="italic font-normal" style={{ color: "#d4a856" }}>Apart</em>
         </h1>
         <p className="mt-2 text-xs md:text-sm" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-          Enter a year. See it among the centuries before and after.
+          Enter a year. Events ranked by Wikipedia pageview popularity.
         </p>
       </header>
 
+      {/* Input */}
       <div className="px-5 md:px-12 py-5" style={{ borderBottom: "1px solid #3d3528", background: "#221c15" }}>
         <form onSubmit={submit} className="flex gap-2 items-stretch">
           <div className="flex-1 flex items-center gap-2 px-3" style={{ background: "#0f0c09", border: "1px solid #5c4a30", borderRadius: "2px" }}>
@@ -692,71 +540,59 @@ export default function CenturyCompare() {
         </form>
       </div>
 
+      {/* Significant Events — paginated, one per century */}
       <div className="px-5 md:px-12 py-5" style={{ borderBottom: "1px solid #3d3528" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={14} style={{ color: "#d4a856" }} />
-          <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-            Significant Events
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} style={{ color: "#d4a856" }} />
+            <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
+              Significant Years
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSigPage((p) => Math.max(0, p - 1))}
+              disabled={sigPage === 0}
+              className="p-1 transition-opacity disabled:opacity-30"
+              style={{ color: "#d4a856" }}
+              aria-label="Previous"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
+              {sigPage + 1}/{totalSigPages}
+            </span>
+            <button
+              onClick={() => setSigPage((p) => Math.min(totalSigPages - 1, p + 1))}
+              disabled={sigPage === totalSigPages - 1}
+              className="p-1 transition-opacity disabled:opacity-30"
+              style={{ color: "#d4a856" }}
+              aria-label="Next"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {CATEGORIES.map((cat) => {
-            const isActive = activeCat === cat.key;
-            return (
-              <button
-                key={cat.key}
-                onClick={() => setActiveCat(cat.key)}
-                className="text-[10px] uppercase tracking-widest px-2.5 py-1 transition-all"
-                style={{
-                  background: isActive ? cat.color : "transparent",
-                  color: isActive ? "#1a1612" : cat.color,
-                  border: `1px solid ${cat.color}80`,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  borderRadius: "2px",
-                  fontWeight: isActive ? 700 : 400,
-                }}
-              >
-                {cat.label}
-              </button>
-            );
-          })}
-        </div>
-
         <div className="flex flex-col gap-1">
-          {filteredSignificant.length === 0 ? (
-            <div className="text-xs italic py-2" style={{ color: "#6c5a3a" }}>
-              No events in this category yet.
-            </div>
-          ) : filteredSignificant.map((item) => {
-            const active = anchor === item.year;
-            const cat = CATEGORIES.find((c) => c.key === item.cat) || CATEGORIES[0];
+          {pageYears.map((year) => {
+            const active = anchor === year;
             return (
               <button
-                key={`${item.year}-${item.cat}`}
-                onClick={() => jumpTo(item.year)}
+                key={year}
+                onClick={() => jumpTo(year)}
                 className="text-left flex items-baseline gap-3 py-1.5 px-2.5 transition-all hover:brightness-125"
                 style={{
-                  background: active ? `${cat.color}20` : "transparent",
-                  border: `1px solid ${active ? cat.color : "#3d3528"}`,
+                  background: active ? "#d4a85620" : "transparent",
+                  border: `1px solid ${active ? "#d4a856" : "#3d3528"}`,
                   borderRadius: "2px",
                 }}
               >
-                <span className="text-sm font-bold shrink-0 w-20" style={{ color: active ? cat.color : "#f5ead0", fontFamily: "'Fraunces', serif" }}>
-                  {formatYear(item.year)}
+                <span className="text-sm font-bold shrink-0 w-24" style={{ color: active ? "#d4a856" : "#f5ead0", fontFamily: "'Fraunces', serif" }}>
+                  {formatYear(year)}
                 </span>
-                <span className="text-xs flex items-center gap-2 flex-wrap" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
-                  <span style={{
-                    color: cat.color,
-                    border: `1px solid ${cat.color}80`,
-                    padding: "1px 5px",
-                    borderRadius: "2px",
-                    fontSize: "9px",
-                    letterSpacing: "0.1em",
-                  }}>
-                    {cat.key === "POL" ? "POL" : cat.key === "SCI" ? "SCI" : "ALL"}
-                  </span>
-                  <span>{item.label}</span>
+                <span className="text-xs" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
+                  top events by pageviews
                 </span>
               </button>
             );
@@ -764,6 +600,7 @@ export default function CenturyCompare() {
         </div>
       </div>
 
+      {/* Direction hint */}
       <div className="px-5 md:px-12 py-3 flex items-center justify-center gap-4 text-xs" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace", background: "#1a1612" }}>
         <span className="flex items-center gap-1"><ArrowUp size={12} /> newer</span>
         <span style={{ color: "#5c4a30" }}>·</span>
@@ -787,9 +624,9 @@ export default function CenturyCompare() {
                 accent={color}
                 isAnchor={item.isAnchor}
                 offset={item.offset}
+                isFuture={item.isFuture}
                 expanded={expanded}
                 setExpanded={setExpanded}
-                onJumpTo={jumpTo}
               />
             );
           })}
@@ -810,22 +647,20 @@ export default function CenturyCompare() {
       </main>
 
       <footer className="px-5 md:px-12 py-6 text-xs" style={{ borderTop: "1px solid #3d3528", color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
-        Curated events · Wikipedia fallback ranked by 60-day pageview popularity · Cached for 30 days
+        Events ranked by cumulative Wikipedia pageviews (last 60 days). Cached for 30 days per year.
       </footer>
     </div>
   );
 }
 
-function YearBlock({ year, accent, isAnchor, offset, expanded, setExpanded, onJumpTo }) {
-  const isCurrent = year === currentYear();
-  const curated = EVENTS[String(year)];
+function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpanded }) {
   const [wikiEvents, setWikiEvents] = useState(null);
-  const [loading, setLoading] = useState(!curated && !isCurrent);
+  const [loading, setLoading] = useState(!isFuture);
   const [fetchError, setFetchError] = useState(null);
   const [fromCache, setFromCache] = useState(false);
 
   useEffect(() => {
-    if (curated || isCurrent) return;
+    if (isFuture) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setFetchError(null);
@@ -840,16 +675,35 @@ function YearBlock({ year, accent, isAnchor, offset, expanded, setExpanded, onJu
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [year, curated, isCurrent]);
+  }, [year, isFuture]);
 
   const eraBadge = year < 0 ? "BCE" : "CE";
   const yearNumber = Math.abs(year);
   const wikiSlug = yearToWikiSlug(year);
-  const sameCentury = (a, b) => Math.floor((a - (a < 0 ? 99 : 0)) / 100) === Math.floor((b - (b < 0 ? 99 : 0)) / 100);
+  const wikiUrl = `https://en.wikipedia.org/wiki/${wikiSlug}`;
 
-  if (isCurrent) {
+  // Build event-specific URL — link to the year page with section anchor if we have one
+  const eventUrl = (event) => {
+    // If the primary wiki link isn't generic, go there directly
+    if (event.wiki && !isGenericSlug(event.wiki)) {
+      return `https://en.wikipedia.org/wiki/${event.wiki}`;
+    }
+    // Otherwise, link to the year page's Events section (or subsection if known)
+    if (event.sectionAnchor) {
+      return `${wikiUrl}#${event.sectionAnchor}`;
+    }
+    return `${wikiUrl}#Events`;
+  };
+
+  // Future year block
+  if (isFuture) {
     return (
-      <section style={{ background: "#2a2218", padding: "20px", border: `1px solid ${accent}60`, borderRadius: "4px" }}>
+      <section style={{
+        background: isAnchor ? "#2a2218" : "transparent",
+        padding: isAnchor ? "20px" : "0",
+        border: isAnchor ? `1px solid ${accent}40` : "none",
+        borderRadius: isAnchor ? "4px" : "0",
+      }}>
         <div className="flex items-baseline gap-3 mb-4 pb-3" style={{ borderBottom: `2px solid ${accent}` }}>
           <div className="flex flex-col items-start">
             <span className="text-[10px] uppercase tracking-[0.2em] px-1.5 py-0.5 mb-1"
@@ -861,38 +715,81 @@ function YearBlock({ year, accent, isAnchor, offset, expanded, setExpanded, onJu
             </h2>
           </div>
           <div className="flex-1 text-right">
-            <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-              In progress
+            <div className="text-[10px] uppercase tracking-widest flex items-center justify-end gap-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+              <Clock size={10} /> Not here yet
             </div>
           </div>
         </div>
 
-        <div className="p-4 mb-3" style={{ background: `linear-gradient(90deg, ${accent}15 0%, transparent 100%)`, border: `1px solid ${accent}40`, borderLeftWidth: "3px", borderRadius: "2px" }}>
-          <div className="flex items-start gap-2 mb-2">
-            <span className="text-[9px] uppercase tracking-[0.2em] px-1.5 py-0.5 shrink-0"
-              style={{ fontFamily: "'JetBrains Mono', monospace", background: accent, color: "#1a1612", borderRadius: "2px", fontWeight: 700 }}>
-              ● LIVE
-            </span>
-            <span className="text-[10px] uppercase tracking-widest" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
-              Events in progress · {formatToday()}
-            </span>
-          </div>
-          <p className="text-[15px] leading-relaxed mb-3" style={{ color: "#d4c7a8" }}>
-            {yearNumber} is still unfolding. Rather than cherry-pick events from an incomplete year, head to Wikipedia's live-updated page for the full record as it develops.
+        <div className="p-4 space-y-3" style={{
+          background: `linear-gradient(90deg, ${accent}12 0%, transparent 100%)`,
+          border: `1px solid ${accent}30`,
+          borderLeftWidth: "3px",
+          borderRadius: "2px",
+        }}>
+          <p className="text-[15px] leading-relaxed" style={{ color: "#d4c7a8" }}>
+            The future hasn't happened yet. But humanity keeps a running list of what's coming — scheduled missions, planned anniversaries, predicted milestones, and treaties with long tails. Here are good places to explore.
           </p>
-          <a href={`https://en.wikipedia.org/wiki/${wikiSlug}`} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 py-2.5 px-4 text-xs uppercase tracking-widest font-semibold transition-all hover:brightness-125"
-            style={{ background: accent, color: "#1a1612", fontFamily: "'JetBrains Mono', monospace", borderRadius: "2px", textDecoration: "none" }}>
-            <BookOpen size={14} /> Read {yearNumber} on Wikipedia <ExternalLink size={12} />
-          </a>
+          <div className="flex flex-col gap-2">
+            <a href="https://en.wikipedia.org/wiki/List_of_future_events" target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 py-2.5 px-3 text-xs transition-all hover:brightness-125"
+              style={{
+                background: "transparent",
+                color: accent,
+                border: `1px solid ${accent}60`,
+                fontFamily: "'JetBrains Mono', monospace",
+                borderRadius: "2px",
+                textDecoration: "none",
+              }}>
+              <span className="uppercase tracking-widest">▸ List of future events</span>
+              <ExternalLink size={12} />
+            </a>
+            <a href="https://en.wikipedia.org/wiki/Timeline_of_the_near_future" target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 py-2.5 px-3 text-xs transition-all hover:brightness-125"
+              style={{
+                background: "transparent",
+                color: accent,
+                border: `1px solid ${accent}60`,
+                fontFamily: "'JetBrains Mono', monospace",
+                borderRadius: "2px",
+                textDecoration: "none",
+              }}>
+              <span className="uppercase tracking-widest">▸ Timeline of the near future</span>
+              <ExternalLink size={12} />
+            </a>
+            {year >= 2101 && (
+              <a href="https://en.wikipedia.org/wiki/3rd_millennium" target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between gap-2 py-2.5 px-3 text-xs transition-all hover:brightness-125"
+                style={{
+                  background: "transparent",
+                  color: accent,
+                  border: `1px solid ${accent}60`,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  borderRadius: "2px",
+                  textDecoration: "none",
+                }}>
+                <span className="uppercase tracking-widest">▸ Predictions for the 3rd millennium</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+            <a href={wikiUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 py-2.5 px-3 text-xs transition-all hover:brightness-125"
+              style={{
+                background: accent,
+                color: "#1a1612",
+                fontFamily: "'JetBrains Mono', monospace",
+                borderRadius: "2px",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}>
+              <span className="uppercase tracking-widest">▸ Wikipedia's {yearNumber} page</span>
+              <ExternalLink size={12} />
+            </a>
+          </div>
         </div>
       </section>
     );
   }
-
-  const data = curated || (wikiEvents ? { events: wikiEvents, seeAlso: [], fromWiki: true } : null);
-  const events = data?.events || [];
-  const seeAlso = (data?.seeAlso || []).filter((s) => sameCentury(s.year, year));
 
   return (
     <section style={{
@@ -913,10 +810,10 @@ function YearBlock({ year, accent, isAnchor, offset, expanded, setExpanded, onJu
         </div>
         <div className="flex-1 text-right">
           <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-            {isAnchor ? "Your year" : offset > 0 ? `+${offset} years` : `${offset} years`}
+            {isAnchor ? (year === currentYear() ? "So far" : "Your year") : offset > 0 ? `+${offset} years` : `${offset} years`}
           </div>
           <div className="text-xs mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-            {loading ? "ranking…" : events.length > 0 ? `${events.length} key events` : "no data"}
+            {loading ? "ranking…" : wikiEvents ? `top ${wikiEvents.length} by pageviews` : "no data"}
           </div>
         </div>
       </div>
@@ -927,91 +824,59 @@ function YearBlock({ year, accent, isAnchor, offset, expanded, setExpanded, onJu
         </div>
       )}
 
-      {!loading && !data && fetchError && (
+      {!loading && !wikiEvents && fetchError && (
         <div className="py-4 text-sm italic space-y-2" style={{ color: "#9a8b6f" }}>
           <div>Couldn't load events for {yearNumber} {eraBadge}.</div>
           <div className="text-xs not-italic" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#6c5a3a" }}>⚠ {fetchError}</div>
           <div>
             Try{" "}
-            <a href={`https://en.wikipedia.org/wiki/${wikiSlug}`} target="_blank" rel="noopener noreferrer"
+            <a href={wikiUrl} target="_blank" rel="noopener noreferrer"
                className="underline hover:no-underline" style={{ color: accent }}>the Wikipedia page</a>{" "}directly.
           </div>
         </div>
       )}
 
-      {data && (
+      {wikiEvents && (
         <>
-          {data.fromWiki && (
-            <div className="mb-3 text-[10px] uppercase tracking-widest flex items-center gap-1.5" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-              <TrendingUp size={10} />
-              <span>Live from Wikipedia · ranked by 60-day pageviews</span>
-              {fromCache && <span style={{ opacity: 0.6 }}>· cached</span>}
-            </div>
-          )}
+          <div className="mb-3 text-[10px] uppercase tracking-widest flex items-center gap-1.5" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+            <TrendingUp size={10} />
+            <span>Ranked by cumulative pageviews (60 days)</span>
+            {fromCache && <span style={{ opacity: 0.6 }}>· cached</span>}
+          </div>
           <ol className="space-y-0">
-            {events.map((event, i) => {
-              const key = `${year}-${i}`;
-              const isOpen = expanded === key;
+            {wikiEvents.map((event, i) => {
+              const linkUrl = eventUrl(event);
               return (
-                <li key={i} style={{ borderBottom: "1px solid #3d3528" }}>
-                  <button onClick={() => setExpanded(isOpen ? null : key)} className="text-left w-full py-4 group">
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base md:text-lg font-semibold leading-snug" style={{ color: "#f5ead0" }}>{event.title}</h3>
-                        {isOpen && (
-                          <div className="mt-2.5 leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>
-                            {event.detail}
-                            {event.footnote && (
-                              <div className="mt-2 pl-3 text-[13px] italic border-l-2" style={{ color: "#9a8b6f", borderColor: `${accent}60` }}>
-                                ⓘ {event.footnote}
-                              </div>
-                            )}
-                            <div className="mt-3">
-                              <a href={`https://en.wikipedia.org/wiki/${event.wiki}`} target="_blank" rel="noopener noreferrer"
-                                 className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
-                                 style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-                                Read more <ExternalLink size={12} />
-                              </a>
-                            </div>
-                          </div>
-                        )}
+                <li key={i} style={{ borderBottom: "1px solid #3d3528" }} className="py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      {event.datePrefix && (
+                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+                          {event.datePrefix}
+                        </div>
+                      )}
+                      <p className="text-[15px] leading-relaxed" style={{ color: "#f5ead0" }}>
+                        {event.body}
+                      </p>
+                      <div className="mt-2">
+                        <a href={linkUrl} target="_blank" rel="noopener noreferrer"
+                           className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
+                           style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+                          Read more <ExternalLink size={12} />
+                        </a>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 </li>
               );
             })}
           </ol>
 
-          {seeAlso.length > 0 && (
-            <div className="mt-5 pt-4" style={{ borderTop: `1px dashed ${accent}60` }}>
-              <div className="text-[10px] uppercase tracking-widest mb-2" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-                Also within this century
-              </div>
-              <ul className="space-y-1.5">
-                {seeAlso.map((s, i) => (
-                  <li key={i}>
-                    <button onClick={() => onJumpTo(s.year)}
-                      className="text-left flex items-start gap-2 hover:underline decoration-dotted"
-                      style={{ color: "#d4c7a8" }}>
-                      <CornerDownRight size={14} className="mt-1 shrink-0" style={{ color: accent }} />
-                      <span className="text-sm leading-snug">
-                        <span className="font-semibold" style={{ color: accent }}>{formatYear(s.year)}</span>
-                        <span className="mx-1.5">·</span>
-                        {s.note}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           <div className="mt-5">
-            <a href={`https://en.wikipedia.org/wiki/${wikiSlug}`} target="_blank" rel="noopener noreferrer"
+            <a href={wikiUrl} target="_blank" rel="noopener noreferrer"
               className="w-full flex items-center justify-center gap-2 py-3 text-xs uppercase tracking-widest font-semibold transition-all hover:brightness-125"
               style={{ background: "transparent", color: "#d4a856", border: "1px solid #5c4a30", fontFamily: "'JetBrains Mono', monospace", borderRadius: "2px", textDecoration: "none" }}>
               <BookOpen size={14} /> Read more about {yearNumber} {eraBadge}
@@ -1067,32 +932,26 @@ function DeepTimeBlock({ era, accent, expanded, setExpanded }) {
       </div>
       <ol className="space-y-0">
         {era.key.map((event, i) => {
-          const key = `deep-${era.yearsAgo}-${i}`;
-          const isOpen = expanded === key;
           return (
-            <li key={i} style={{ borderBottom: "1px solid #3d3528" }}>
-              <button onClick={() => setExpanded(isOpen ? null : key)} className="text-left w-full py-4 group">
-                <div className="flex items-start gap-3">
-                  <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base md:text-lg font-semibold" style={{ color: "#f5ead0" }}>{event.title}</h3>
-                    {isOpen && (
-                      <div className="mt-2.5 leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>
-                        {event.detail}
-                        <div className="mt-3">
-                          <a href={`https://en.wikipedia.org/wiki/${event.wiki}`} target="_blank" rel="noopener noreferrer"
-                             className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
-                             style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-                            Read more <ExternalLink size={12} />
-                          </a>
-                        </div>
-                      </div>
-                    )}
+            <li key={i} style={{ borderBottom: "1px solid #3d3528" }} className="py-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base md:text-lg font-semibold mb-1" style={{ color: "#f5ead0" }}>{event.title}</h3>
+                  <p className="leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>
+                    {event.detail}
+                  </p>
+                  <div className="mt-2">
+                    <a href={`https://en.wikipedia.org/wiki/${event.wiki}`} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
+                       style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+                      Read more <ExternalLink size={12} />
+                    </a>
                   </div>
                 </div>
-              </button>
+              </div>
             </li>
           );
         })}
