@@ -320,7 +320,11 @@ async function fetchWikipediaCandidates(year) {
           const id = node.id || node.querySelector("[id]")?.id;
           if (id) currentSection = id;
         }
-        if (node.tagName === "LI") collected.push({ li: node, section: currentSection });
+        // Include LI, DD (definition list items used on some older year pages),
+        // and paragraph elements as potential event entries
+        if (node.tagName === "LI" || node.tagName === "DD") {
+          collected.push({ li: node, section: currentSection });
+        }
       }
 
       const parsed = collected.map(({ li, section }) => {
@@ -343,8 +347,9 @@ async function fetchWikipediaCandidates(year) {
 
       const seen = new Set();
       const unique = parsed.filter((e) => {
-        if (seen.has(e.title)) return false;
-        seen.add(e.title);
+        // Dedup by body text — the previous version used e.title which no longer exists
+        if (seen.has(e.body)) return false;
+        seen.add(e.body);
         return true;
       });
 
@@ -477,11 +482,44 @@ export default function CenturyCompare() {
   const [expanded, setExpanded] = useState(null);
   const [showDeepTime, setShowDeepTime] = useState(false);
   const [sigPage, setSigPage] = useState(0);
+  // Previews: year -> { loading, preview: string|null }
+  const [previews, setPreviews] = useState({});
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
   const totalSigPages = Math.ceil(SIGNIFICANT_YEARS.length / SIGNIFICANT_PAGE_SIZE);
   const pageYears = SIGNIFICANT_YEARS.slice(sigPage * SIGNIFICANT_PAGE_SIZE, (sigPage + 1) * SIGNIFICANT_PAGE_SIZE);
+
+  // Progressively load previews for the current page of years
+  useEffect(() => {
+    let cancelled = false;
+    const loadPreviews = async () => {
+      for (const year of pageYears) {
+        if (cancelled) break;
+        // Skip if already have a settled result (not loading)
+        if (previews[year] && !previews[year].loading) continue;
+        setPreviews((p) => ({ ...p, [year]: { loading: true, preview: null, error: null } }));
+        try {
+          const result = await fetchRankedEvents(year);
+          if (cancelled) break;
+          if (result?.error) {
+            setPreviews((p) => ({ ...p, [year]: { loading: false, preview: null, error: result.error } }));
+            continue;
+          }
+          const topEvent = result?.events?.[0];
+          const previewText = topEvent?.body
+            ? (topEvent.body.length > 80 ? topEvent.body.slice(0, 80).replace(/\s+\S*$/, "") + "…" : topEvent.body)
+            : null;
+          setPreviews((p) => ({ ...p, [year]: { loading: false, preview: previewText, error: null } }));
+        } catch (err) {
+          setPreviews((p) => ({ ...p, [year]: { loading: false, preview: null, error: err.message || "fetch failed" } }));
+        }
+      }
+    };
+    loadPreviews();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sigPage]);
 
   const submit = (e) => {
     e?.preventDefault();
@@ -562,7 +600,7 @@ export default function CenturyCompare() {
           <div className="flex items-center gap-2">
             <Sparkles size={14} style={{ color: "#d4a856" }} />
             <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-              Significant Years
+              Significant Events
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -593,26 +631,41 @@ export default function CenturyCompare() {
         <div className="flex flex-col gap-1">
           {pageYears.map((year) => {
             const active = anchor === year;
-            // Compute century label
+            // Compute century label as fallback
             const centuryLabel = year > 0
               ? `${Math.floor((year - 1) / 100) + 1}${ordinalSuffix(Math.floor((year - 1) / 100) + 1)} century`
               : `${Math.floor((Math.abs(year) - 1) / 100) + 1}${ordinalSuffix(Math.floor((Math.abs(year) - 1) / 100) + 1)} century BCE`;
+            const preview = previews[year];
             return (
               <button
                 key={year}
                 onClick={() => jumpTo(year)}
-                className="text-left flex items-baseline gap-3 py-1.5 px-2.5 transition-all hover:brightness-125"
+                className="text-left flex items-start gap-3 py-2 px-2.5 transition-all hover:brightness-125"
                 style={{
                   background: active ? "#d4a85620" : "transparent",
                   border: `1px solid ${active ? "#d4a856" : "#3d3528"}`,
                   borderRadius: "2px",
                 }}
               >
-                <span className="text-sm font-bold shrink-0 w-24" style={{ color: active ? "#d4a856" : "#f5ead0", fontFamily: "'Fraunces', serif" }}>
+                <span className="text-sm font-bold shrink-0 w-20 pt-0.5" style={{ color: active ? "#d4a856" : "#f5ead0", fontFamily: "'Fraunces', serif" }}>
                   {formatYear(year)}
                 </span>
-                <span className="text-xs" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {centuryLabel}
+                <span className="text-xs leading-snug flex-1 min-w-0" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {preview?.loading ? (
+                    <span style={{ opacity: 0.6 }}>Loading…</span>
+                  ) : preview?.preview ? (
+                    <>
+                      <span style={{ color: "#d4c7a8" }}>{preview.preview}</span>
+                      <span className="block mt-0.5 text-[10px]" style={{ color: "#6c5a3a" }}>{centuryLabel}</span>
+                    </>
+                  ) : preview?.error ? (
+                    <>
+                      <span style={{ color: "#c28a7a", opacity: 0.7 }}>⚠ preview unavailable</span>
+                      <span className="block mt-0.5 text-[10px]" style={{ color: "#6c5a3a" }}>{centuryLabel}</span>
+                    </>
+                  ) : (
+                    centuryLabel
+                  )}
                 </span>
               </button>
             );
