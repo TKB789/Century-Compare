@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as InfinityIcon, Loader2, Minus, Sparkles, TrendingUp, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as InfinityIcon, Loader2, Minus, Sparkles, TrendingUp, ChevronLeft, ChevronRight, Clock, CornerDownRight } from "lucide-react";
 
 // ===================================================================
 // DEEP TIME — kept static (pageviews not useful here)
@@ -128,6 +128,162 @@ const SIGNIFICANT_YEARS = [
   1776, 1687, 1492, 1455, 1347, 1215, 1066, 1054, 960, 800,
   622, 476, 313, 100, -44, -221, -323, -500, -776,
 ];
+
+// ===================================================================
+// THEMES — curated "recurring patterns" that span history.
+// Each theme groups events from different centuries so users can see
+// how similar dynamics play out over time.
+//
+// Matching: if an event's `wiki` slug appears in a theme's `members`
+// array, that event is considered part of the theme, and the other
+// members are shown as "See also" links.
+// ===================================================================
+const THEMES = [
+  {
+    id: "pandemics",
+    label: "Pandemics",
+    description: "Disease events that reshaped populations and institutions",
+    members: [
+      { year: 541, wiki: "Plague_of_Justinian", title: "Plague of Justinian" },
+      { year: 1347, wiki: "Black_Death", title: "Black Death" },
+      { year: 1520, wiki: "1520_Mexico_City_smallpox_epidemic", title: "Smallpox in the Americas" },
+      { year: 1665, wiki: "Great_Plague_of_London", title: "Great Plague of London" },
+      { year: 1918, wiki: "1918_flu_pandemic", title: "Spanish flu" },
+      { year: 2020, wiki: "COVID-19_pandemic", title: "COVID-19 pandemic" },
+    ],
+  },
+  {
+    id: "financial-crises",
+    label: "Financial panics",
+    description: "Speculative bubbles and their collapses",
+    members: [
+      { year: 1637, wiki: "Tulip_mania", title: "Tulip Mania" },
+      { year: 1720, wiki: "South_Sea_Bubble", title: "South Sea Bubble" },
+      { year: 1873, wiki: "Panic_of_1873", title: "Panic of 1873" },
+      { year: 1929, wiki: "Wall_Street_crash_of_1929", title: "Wall Street Crash" },
+      { year: 2008, wiki: "2007%E2%80%932008_financial_crisis", title: "Global Financial Crisis" },
+    ],
+  },
+  {
+    id: "information-revolutions",
+    label: "Information revolutions",
+    description: "Technologies that transformed how humans spread knowledge",
+    members: [
+      { year: 1455, wiki: "Gutenberg_Bible", title: "Printing press (Gutenberg Bible)" },
+      { year: 1844, wiki: "Telegraph", title: "Telegraph era begins" },
+      { year: 1876, wiki: "Telephone", title: "Telephone invented" },
+      { year: 1920, wiki: "Radio", title: "Broadcast radio" },
+      { year: 1969, wiki: "ARPANET", title: "ARPANET (early internet)" },
+      { year: 1991, wiki: "World_Wide_Web", title: "World Wide Web" },
+      { year: 2007, wiki: "IPhone_(1st_generation)", title: "Smartphone era (iPhone)" },
+      { year: 2022, wiki: "ChatGPT", title: "Generative AI goes mainstream" },
+    ],
+  },
+  {
+    id: "empire-falls",
+    label: "Fall of empires",
+    description: "Collapses of long-dominant political orders",
+    members: [
+      { year: 476, wiki: "Fall_of_the_Western_Roman_Empire", title: "Fall of Western Rome" },
+      { year: 1453, wiki: "Fall_of_Constantinople", title: "Fall of Constantinople (Byzantine end)" },
+      { year: 1644, wiki: "Transition_from_Ming_to_Qing", title: "Fall of Ming China" },
+      { year: 1806, wiki: "Holy_Roman_Empire", title: "End of the Holy Roman Empire" },
+      { year: 1917, wiki: "Russian_Revolution", title: "Fall of Russian Empire" },
+      { year: 1991, wiki: "Dissolution_of_the_Soviet_Union", title: "Dissolution of the Soviet Union" },
+    ],
+  },
+  {
+    id: "revolutions",
+    label: "Political revolutions",
+    description: "Mass uprisings that replaced existing orders",
+    members: [
+      { year: 1776, wiki: "American_Revolution", title: "American Revolution" },
+      { year: 1789, wiki: "French_Revolution", title: "French Revolution" },
+      { year: 1848, wiki: "Revolutions_of_1848", title: "Revolutions of 1848" },
+      { year: 1917, wiki: "Russian_Revolution", title: "Russian Revolution" },
+      { year: 1949, wiki: "Chinese_Communist_Revolution", title: "Chinese Communist Revolution" },
+      { year: 1979, wiki: "Iranian_Revolution", title: "Iranian Revolution" },
+      { year: 1989, wiki: "Revolutions_of_1989", title: "Revolutions of 1989" },
+      { year: 2011, wiki: "Arab_Spring", title: "Arab Spring" },
+    ],
+  },
+  {
+    id: "scientific-paradigms",
+    label: "Scientific paradigm shifts",
+    description: "Breakthroughs that reshaped our understanding of reality",
+    members: [
+      { year: 1543, wiki: "De_revolutionibus_orbium_coelestium", title: "Copernican heliocentrism" },
+      { year: 1687, wiki: "Philosophi%C3%A6_Naturalis_Principia_Mathematica", title: "Newton's Principia" },
+      { year: 1859, wiki: "On_the_Origin_of_Species", title: "Darwin's Origin of Species" },
+      { year: 1905, wiki: "Annus_mirabilis_papers", title: "Einstein's miracle year" },
+      { year: 1925, wiki: "Matrix_mechanics", title: "Quantum mechanics formulated" },
+      { year: 1953, wiki: "Molecular_structure_of_Nucleic_Acids:_A_Structure_for_Deoxyribose_Nucleic_Acid", title: "DNA double helix" },
+    ],
+  },
+  {
+    id: "human-frontiers",
+    label: "Reaching new frontiers",
+    description: "Moments when humans crossed physical boundaries",
+    members: [
+      { year: 1492, wiki: "Voyages_of_Christopher_Columbus", title: "Columbus reaches the Americas" },
+      { year: 1522, wiki: "Magellan%E2%80%93Elcano_expedition", title: "First circumnavigation" },
+      { year: 1903, wiki: "Wright_brothers", title: "First powered flight" },
+      { year: 1953, wiki: "1953_British_Mount_Everest_expedition", title: "First ascent of Everest" },
+      { year: 1957, wiki: "Sputnik_1", title: "Sputnik 1 (first satellite)" },
+      { year: 1961, wiki: "Vostok_1", title: "First human in space" },
+      { year: 1969, wiki: "Apollo_11", title: "Apollo 11 Moon landing" },
+    ],
+  },
+  {
+    id: "major-wars",
+    label: "Wars that redrew the world",
+    description: "Large-scale conflicts with lasting geopolitical consequences",
+    members: [
+      { year: 1618, wiki: "Thirty_Years%27_War", title: "Thirty Years' War" },
+      { year: 1756, wiki: "Seven_Years%27_War", title: "Seven Years' War" },
+      { year: 1803, wiki: "Napoleonic_Wars", title: "Napoleonic Wars" },
+      { year: 1914, wiki: "World_War_I", title: "World War I" },
+      { year: 1939, wiki: "World_War_II", title: "World War II" },
+      { year: 1947, wiki: "Cold_War", title: "Cold War begins" },
+    ],
+  },
+];
+
+// Build a reverse index: wiki_slug → [themes it belongs to]
+// Computed once at module load, used at every event render.
+const THEME_INDEX = (() => {
+  const idx = new Map();
+  for (const theme of THEMES) {
+    for (const member of theme.members) {
+      const key = member.wiki;
+      if (!idx.has(key)) idx.set(key, []);
+      idx.get(key).push({ theme, member });
+    }
+  }
+  return idx;
+})();
+
+// Find themes that match an event. Returns an array of { theme, matchedMember, otherMembers }.
+// An event matches a theme if its primary wiki slug, or any of its allLinks,
+// appears in the theme's member list.
+function findMatchingThemes(event) {
+  const candidateSlugs = [event.wiki, ...(event.allLinks || [])].filter(Boolean);
+  const matchedThemes = new Map();
+  for (const slug of candidateSlugs) {
+    const matches = THEME_INDEX.get(slug);
+    if (!matches) continue;
+    for (const { theme, member } of matches) {
+      if (!matchedThemes.has(theme.id)) {
+        matchedThemes.set(theme.id, {
+          theme,
+          matchedMember: member,
+          otherMembers: theme.members.filter((m) => m.wiki !== member.wiki),
+        });
+      }
+    }
+  }
+  return [...matchedThemes.values()];
+}
 
 // ===================================================================
 // HELPERS
@@ -773,6 +929,7 @@ export default function CenturyCompare() {
                 isFuture={item.isFuture}
                 expanded={expanded}
                 setExpanded={setExpanded}
+                onJumpTo={jumpTo}
               />
             );
           })}
@@ -799,7 +956,7 @@ export default function CenturyCompare() {
   );
 }
 
-function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpanded }) {
+function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpanded, onJumpTo }) {
   const [wikiEvents, setWikiEvents] = useState(null);
   const [loading, setLoading] = useState(!isFuture);
   const [fetchError, setFetchError] = useState(null);
@@ -1022,6 +1179,7 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
                                 Read on Wikipedia <ExternalLink size={12} />
                               </a>
                             </div>
+                            <ThemesSeeAlso event={event} accent={accent} onJumpTo={onJumpTo} />
                           </div>
                         )}
                       </div>
@@ -1042,6 +1200,43 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
         </>
       )}
     </section>
+  );
+}
+
+function ThemesSeeAlso({ event, accent, onJumpTo }) {
+  const matches = findMatchingThemes(event);
+  if (!matches || matches.length === 0) return null;
+
+  return (
+    <div className="mt-4 pt-3" style={{ borderTop: `1px dashed ${accent}60` }}>
+      {matches.map(({ theme, matchedMember, otherMembers }) => (
+        <div key={theme.id} className="mb-3 last:mb-0">
+          <div className="text-[10px] uppercase tracking-widest mb-1.5 flex items-center gap-1.5" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+            <CornerDownRight size={11} />
+            <span>See also through history · {theme.label}</span>
+          </div>
+          <div className="text-[12px] italic mb-2" style={{ color: "#9a8b6f" }}>
+            {theme.description}
+          </div>
+          <ul className="space-y-1">
+            {otherMembers.map((m) => (
+              <li key={m.wiki}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onJumpTo?.(m.year); }}
+                  className="text-left flex items-start gap-2 py-0.5 hover:underline decoration-dotted"
+                  style={{ color: "#d4c7a8" }}
+                >
+                  <span className="text-xs font-bold shrink-0 mt-0.5" style={{ color: accent, fontFamily: "'Fraunces', serif", minWidth: "3.5rem" }}>
+                    {formatYear(m.year)}
+                  </span>
+                  <span className="text-[13px] leading-snug">{m.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
