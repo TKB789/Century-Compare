@@ -138,18 +138,25 @@ const SIGNIFICANT_YEARS = [
 // array, that event is considered part of the theme, and the other
 // members are shown as "See also" links.
 // ===================================================================
+// Each member has:
+//   year: the canonical year for jumping/display
+//   wiki: the PRIMARY Wikipedia slug (used for matching + the link)
+//   altWikis: array of alternate slugs that also identify this event
+//             (handles Wikipedia redirects and variant naming)
+//   title: display label in the See Also list
+//   desc: short description used when this event is pinned into a year's top 5
 const THEMES = [
   {
     id: "pandemics",
     label: "Pandemics",
     description: "Disease events that reshaped populations and institutions",
     members: [
-      { year: 541, wiki: "Plague_of_Justinian", title: "Plague of Justinian" },
-      { year: 1347, wiki: "Black_Death", title: "Black Death" },
-      { year: 1520, wiki: "1520_Mexico_City_smallpox_epidemic", title: "Smallpox in the Americas" },
-      { year: 1665, wiki: "Great_Plague_of_London", title: "Great Plague of London" },
-      { year: 1918, wiki: "1918_flu_pandemic", title: "Spanish flu" },
-      { year: 2020, wiki: "COVID-19_pandemic", title: "COVID-19 pandemic" },
+      { year: 541, wiki: "Plague_of_Justinian", altWikis: [], title: "Plague of Justinian", desc: "A devastating outbreak of bubonic plague sweeps the Byzantine Empire, killing an estimated 25–50 million people and accelerating the decline of late antiquity." },
+      { year: 1347, wiki: "Black_Death", altWikis: ["Bubonic_plague"], title: "Black Death", desc: "The worst pandemic in recorded human history reaches Europe, killing 30–50% of the population over four years and reshaping labor, religion, and economics for centuries." },
+      { year: 1520, wiki: "1520_Mexico_City_smallpox_epidemic", altWikis: ["Smallpox"], title: "Smallpox in the Americas", desc: "Smallpox brought by European colonizers devastates Indigenous populations of the Americas, killing up to 90% of some communities — one of history's greatest demographic catastrophes." },
+      { year: 1665, wiki: "Great_Plague_of_London", altWikis: [], title: "Great Plague of London", desc: "The last major outbreak of bubonic plague in England kills roughly a quarter of London's population in 18 months." },
+      { year: 1918, wiki: "1918_flu_pandemic", altWikis: ["Spanish_flu", "1918_influenza_pandemic"], title: "1918 flu pandemic", desc: "An influenza strain infects a third of the global population and kills an estimated 50–100 million people worldwide — more than World War I." },
+      { year: 2020, wiki: "COVID-19_pandemic", altWikis: ["COVID-19", "Coronavirus_disease_2019"], title: "COVID-19 pandemic", desc: "WHO declares COVID-19 a pandemic in March. Over 7 million confirmed deaths and unprecedented global lockdowns reshape work, travel, and public health." },
     ],
   },
   {
@@ -157,11 +164,11 @@ const THEMES = [
     label: "Financial panics",
     description: "Speculative bubbles and their collapses",
     members: [
-      { year: 1637, wiki: "Tulip_mania", title: "Tulip Mania" },
-      { year: 1720, wiki: "South_Sea_Bubble", title: "South Sea Bubble" },
-      { year: 1873, wiki: "Panic_of_1873", title: "Panic of 1873" },
-      { year: 1929, wiki: "Wall_Street_crash_of_1929", title: "Wall Street Crash" },
-      { year: 2008, wiki: "2007%E2%80%932008_financial_crisis", title: "Global Financial Crisis" },
+      { year: 1637, wiki: "Tulip_mania", altWikis: [], title: "Tulip Mania", desc: "Prices for Dutch tulip bulbs collapse after a speculative frenzy — considered the first recorded economic bubble." },
+      { year: 1720, wiki: "South_Sea_Bubble", altWikis: ["South_Sea_Company"], title: "South Sea Bubble", desc: "Shares in Britain's South Sea Company crash after wild speculation, wiping out fortunes including Isaac Newton's." },
+      { year: 1873, wiki: "Panic_of_1873", altWikis: ["Long_Depression"], title: "Panic of 1873", desc: "A railroad-and-bank collapse triggers the 'Long Depression' — a global economic slump lasting more than two decades." },
+      { year: 1929, wiki: "Wall_Street_crash_of_1929", altWikis: ["Great_Depression"], title: "Wall Street Crash", desc: "U.S. stock markets collapse over several days in October, triggering the Great Depression and reshaping global economics and politics for a generation." },
+      { year: 2008, wiki: "2007%E2%80%932008_financial_crisis", altWikis: ["Great_Recession", "Financial_crisis_of_2007%E2%80%932008"], title: "Global Financial Crisis", desc: "Subprime mortgage collapse triggers a worldwide banking crisis, Great Recession, and the biggest government bailouts in history." },
     ],
   },
   {
@@ -169,14 +176,14 @@ const THEMES = [
     label: "Information revolutions",
     description: "Technologies that transformed how humans spread knowledge",
     members: [
-      { year: 1455, wiki: "Gutenberg_Bible", title: "Printing press (Gutenberg Bible)" },
-      { year: 1844, wiki: "Telegraph", title: "Telegraph era begins" },
-      { year: 1876, wiki: "Telephone", title: "Telephone invented" },
-      { year: 1920, wiki: "Radio", title: "Broadcast radio" },
-      { year: 1969, wiki: "ARPANET", title: "ARPANET (early internet)" },
-      { year: 1991, wiki: "World_Wide_Web", title: "World Wide Web" },
-      { year: 2007, wiki: "IPhone_(1st_generation)", title: "Smartphone era (iPhone)" },
-      { year: 2022, wiki: "ChatGPT", title: "Generative AI goes mainstream" },
+      { year: 1455, wiki: "Gutenberg_Bible", altWikis: ["Printing_press", "Johannes_Gutenberg"], title: "Printing press (Gutenberg Bible)", desc: "Gutenberg completes his 42-line Bible, the first major European book printed with movable type — launching a revolution in literacy, religion, and science." },
+      { year: 1844, wiki: "Telegraph", altWikis: ["Electrical_telegraph", "Samuel_Morse"], title: "Telegraph era begins", desc: "Samuel Morse transmits 'What hath God wrought' from Washington to Baltimore. For the first time, information travels faster than a horse." },
+      { year: 1876, wiki: "Telephone", altWikis: ["Alexander_Graham_Bell", "Invention_of_the_telephone"], title: "Telephone invented", desc: "Alexander Graham Bell patents the telephone and makes the first successful voice call. The wired world begins to connect." },
+      { year: 1920, wiki: "Radio", altWikis: ["Broadcasting", "KDKA_(AM)"], title: "Broadcast radio", desc: "KDKA in Pittsburgh broadcasts the first commercial radio program — the dawn of mass-audience electronic media." },
+      { year: 1969, wiki: "ARPANET", altWikis: ["History_of_the_Internet"], title: "ARPANET (early internet)", desc: "The first message is sent across ARPANET between UCLA and Stanford. The internet is born, though few yet know it." },
+      { year: 1991, wiki: "World_Wide_Web", altWikis: ["Tim_Berners-Lee"], title: "World Wide Web", desc: "Tim Berners-Lee publishes the first website from CERN, making the internet accessible through hyperlinked pages anyone can create." },
+      { year: 2007, wiki: "IPhone_(1st_generation)", altWikis: ["IPhone", "Smartphone"], title: "Smartphone era (iPhone)", desc: "Apple launches the first iPhone, combining phone, internet, and computer into one pocket device — rewiring human attention and behavior." },
+      { year: 2022, wiki: "ChatGPT", altWikis: ["Generative_artificial_intelligence", "GPT-3"], title: "Generative AI goes mainstream", desc: "OpenAI releases ChatGPT, reaching 100 million users in two months — the fastest consumer product adoption in history and the start of the AI era." },
     ],
   },
   {
@@ -184,12 +191,12 @@ const THEMES = [
     label: "Fall of empires",
     description: "Collapses of long-dominant political orders",
     members: [
-      { year: 476, wiki: "Fall_of_the_Western_Roman_Empire", title: "Fall of Western Rome" },
-      { year: 1453, wiki: "Fall_of_Constantinople", title: "Fall of Constantinople (Byzantine end)" },
-      { year: 1644, wiki: "Transition_from_Ming_to_Qing", title: "Fall of Ming China" },
-      { year: 1806, wiki: "Holy_Roman_Empire", title: "End of the Holy Roman Empire" },
-      { year: 1917, wiki: "Russian_Revolution", title: "Fall of Russian Empire" },
-      { year: 1991, wiki: "Dissolution_of_the_Soviet_Union", title: "Dissolution of the Soviet Union" },
+      { year: 476, wiki: "Fall_of_the_Western_Roman_Empire", altWikis: ["Western_Roman_Empire"], title: "Fall of Western Rome", desc: "The last Roman emperor in the West, Romulus Augustulus, is deposed by the Germanic king Odoacer — ending a polity that had lasted nearly a millennium." },
+      { year: 1453, wiki: "Fall_of_Constantinople", altWikis: ["Byzantine_Empire"], title: "Fall of Constantinople", desc: "Ottoman forces under Mehmed II capture Constantinople, ending the 1,100-year Byzantine Empire and traditionally marking the close of the Middle Ages." },
+      { year: 1644, wiki: "Transition_from_Ming_to_Qing", altWikis: ["Ming_dynasty", "Qing_dynasty"], title: "Fall of Ming China", desc: "After peasant rebellions and Manchu invasion, the 276-year Ming dynasty collapses. The Qing dynasty begins, reshaping China for the next 267 years." },
+      { year: 1806, wiki: "Holy_Roman_Empire", altWikis: ["Dissolution_of_the_Holy_Roman_Empire"], title: "End of the Holy Roman Empire", desc: "Under pressure from Napoleon, Emperor Francis II dissolves the thousand-year Holy Roman Empire — ending the medieval European political order." },
+      { year: 1917, wiki: "Russian_Revolution", altWikis: ["October_Revolution", "February_Revolution"], title: "Fall of Russian Empire", desc: "The Romanov dynasty collapses amid war and revolution; the Bolsheviks seize power in October, creating the first communist state." },
+      { year: 1991, wiki: "Dissolution_of_the_Soviet_Union", altWikis: ["Soviet_Union"], title: "Dissolution of the Soviet Union", desc: "The USSR formally dissolves into 15 independent republics, ending the Cold War and the 20th century's defining ideological conflict." },
     ],
   },
   {
@@ -197,14 +204,14 @@ const THEMES = [
     label: "Political revolutions",
     description: "Mass uprisings that replaced existing orders",
     members: [
-      { year: 1776, wiki: "American_Revolution", title: "American Revolution" },
-      { year: 1789, wiki: "French_Revolution", title: "French Revolution" },
-      { year: 1848, wiki: "Revolutions_of_1848", title: "Revolutions of 1848" },
-      { year: 1917, wiki: "Russian_Revolution", title: "Russian Revolution" },
-      { year: 1949, wiki: "Chinese_Communist_Revolution", title: "Chinese Communist Revolution" },
-      { year: 1979, wiki: "Iranian_Revolution", title: "Iranian Revolution" },
-      { year: 1989, wiki: "Revolutions_of_1989", title: "Revolutions of 1989" },
-      { year: 2011, wiki: "Arab_Spring", title: "Arab Spring" },
+      { year: 1776, wiki: "American_Revolution", altWikis: ["United_States_Declaration_of_Independence", "American_Revolutionary_War"], title: "American Revolution", desc: "Thirteen British colonies declare independence, articulating in the Declaration a new theory of government by consent of the governed." },
+      { year: 1789, wiki: "French_Revolution", altWikis: ["Storming_of_the_Bastille"], title: "French Revolution", desc: "The storming of the Bastille ignites a decade of upheaval that abolishes the monarchy, executes the king, and reshapes European politics forever." },
+      { year: 1848, wiki: "Revolutions_of_1848", altWikis: ["Spring_of_Nations"], title: "Revolutions of 1848", desc: "A wave of liberal and nationalist uprisings sweeps Europe from France to Hungary — most fail, but they plant seeds for later democratic reform." },
+      { year: 1917, wiki: "Russian_Revolution", altWikis: ["October_Revolution", "February_Revolution"], title: "Russian Revolution", desc: "Bolshevik revolutionaries seize power in October, establishing the first communist state and setting the stage for the 20th-century Cold War." },
+      { year: 1949, wiki: "Chinese_Communist_Revolution", altWikis: ["Chinese_Civil_War", "Proclamation_of_the_People%27s_Republic_of_China"], title: "Chinese Communist Revolution", desc: "Mao Zedong proclaims the People's Republic of China after decades of civil war, bringing nearly a quarter of the world's population under communist rule." },
+      { year: 1979, wiki: "Iranian_Revolution", altWikis: ["Ruhollah_Khomeini"], title: "Iranian Revolution", desc: "The Shah is overthrown and Ayatollah Khomeini establishes an Islamic Republic — the first successful theocratic revolution of the modern era." },
+      { year: 1989, wiki: "Revolutions_of_1989", altWikis: ["Fall_of_the_Berlin_Wall", "Berlin_Wall"], title: "Revolutions of 1989", desc: "The Berlin Wall falls and communist regimes collapse across Eastern Europe within months — bloodlessly, and faster than anyone predicted." },
+      { year: 2011, wiki: "Arab_Spring", altWikis: [], title: "Arab Spring", desc: "Mass protests topple governments in Tunisia, Egypt, Libya, and Yemen. Some lead to democratic transitions, others to civil wars that continue today." },
     ],
   },
   {
@@ -212,12 +219,12 @@ const THEMES = [
     label: "Scientific paradigm shifts",
     description: "Breakthroughs that reshaped our understanding of reality",
     members: [
-      { year: 1543, wiki: "De_revolutionibus_orbium_coelestium", title: "Copernican heliocentrism" },
-      { year: 1687, wiki: "Philosophi%C3%A6_Naturalis_Principia_Mathematica", title: "Newton's Principia" },
-      { year: 1859, wiki: "On_the_Origin_of_Species", title: "Darwin's Origin of Species" },
-      { year: 1905, wiki: "Annus_mirabilis_papers", title: "Einstein's miracle year" },
-      { year: 1925, wiki: "Matrix_mechanics", title: "Quantum mechanics formulated" },
-      { year: 1953, wiki: "Molecular_structure_of_Nucleic_Acids:_A_Structure_for_Deoxyribose_Nucleic_Acid", title: "DNA double helix" },
+      { year: 1543, wiki: "De_revolutionibus_orbium_coelestium", altWikis: ["Nicolaus_Copernicus", "Heliocentrism"], title: "Copernican heliocentrism", desc: "Copernicus publishes his argument that Earth orbits the Sun, displacing 1,400 years of geocentric astronomy and triggering the Scientific Revolution." },
+      { year: 1687, wiki: "Philosophi%C3%A6_Naturalis_Principia_Mathematica", altWikis: ["Isaac_Newton"], title: "Newton's Principia", desc: "Isaac Newton publishes the Principia, laying out the laws of motion and universal gravitation — the foundation of classical physics for 200+ years." },
+      { year: 1859, wiki: "On_the_Origin_of_Species", altWikis: ["Charles_Darwin", "Evolution"], title: "Darwin's Origin of Species", desc: "Darwin publishes his theory of evolution by natural selection, fundamentally reshaping biology and humanity's understanding of its place in nature." },
+      { year: 1905, wiki: "Annus_mirabilis_papers", altWikis: ["Albert_Einstein", "Special_relativity"], title: "Einstein's miracle year", desc: "A 26-year-old patent clerk publishes four papers — on the photoelectric effect, Brownian motion, special relativity, and E=mc² — that reshape modern physics." },
+      { year: 1925, wiki: "Matrix_mechanics", altWikis: ["Quantum_mechanics", "Werner_Heisenberg"], title: "Quantum mechanics formulated", desc: "Heisenberg formulates matrix mechanics; Schrödinger follows with wave mechanics in 1926. Reality at the atomic scale turns out to be fundamentally probabilistic." },
+      { year: 1953, wiki: "Molecular_structure_of_Nucleic_Acids:_A_Structure_for_Deoxyribose_Nucleic_Acid", altWikis: ["DNA", "Francis_Crick", "James_Watson"], title: "DNA double helix", desc: "Watson and Crick publish the double-helix structure of DNA (building on Rosalind Franklin's data), unlocking the molecular basis of heredity." },
     ],
   },
   {
@@ -225,13 +232,13 @@ const THEMES = [
     label: "Reaching new frontiers",
     description: "Moments when humans crossed physical boundaries",
     members: [
-      { year: 1492, wiki: "Voyages_of_Christopher_Columbus", title: "Columbus reaches the Americas" },
-      { year: 1522, wiki: "Magellan%E2%80%93Elcano_expedition", title: "First circumnavigation" },
-      { year: 1903, wiki: "Wright_brothers", title: "First powered flight" },
-      { year: 1953, wiki: "1953_British_Mount_Everest_expedition", title: "First ascent of Everest" },
-      { year: 1957, wiki: "Sputnik_1", title: "Sputnik 1 (first satellite)" },
-      { year: 1961, wiki: "Vostok_1", title: "First human in space" },
-      { year: 1969, wiki: "Apollo_11", title: "Apollo 11 Moon landing" },
+      { year: 1492, wiki: "Voyages_of_Christopher_Columbus", altWikis: ["Christopher_Columbus"], title: "Columbus reaches the Americas", desc: "Columbus makes landfall in the Bahamas, beginning sustained European contact with the Americas — launching the Columbian Exchange and centuries of colonization." },
+      { year: 1522, wiki: "Magellan%E2%80%93Elcano_expedition", altWikis: ["Ferdinand_Magellan"], title: "First circumnavigation", desc: "Magellan's expedition returns to Spain under Elcano after sailing around the world — proving the earth's sphericity empirically and opening global trade routes." },
+      { year: 1903, wiki: "Wright_brothers", altWikis: ["Wright_Flyer"], title: "First powered flight", desc: "At Kitty Hawk, the Wright brothers achieve the first sustained, controlled powered flight — 12 seconds that will transform warfare, travel, and commerce." },
+      { year: 1953, wiki: "1953_British_Mount_Everest_expedition", altWikis: ["Edmund_Hillary", "Tenzing_Norgay"], title: "First ascent of Everest", desc: "Edmund Hillary and Tenzing Norgay reach the summit of Mount Everest — the first confirmed ascent of the world's highest peak." },
+      { year: 1957, wiki: "Sputnik_1", altWikis: ["Sputnik_program"], title: "Sputnik 1 (first satellite)", desc: "The Soviet Union launches Sputnik 1, the first artificial satellite, shocking the West and launching the Space Age and the space race." },
+      { year: 1961, wiki: "Vostok_1", altWikis: ["Yuri_Gagarin"], title: "First human in space", desc: "Yuri Gagarin orbits Earth aboard Vostok 1 — the first human being to leave the planet and return safely." },
+      { year: 1969, wiki: "Apollo_11", altWikis: ["Neil_Armstrong", "Moon_landing"], title: "Apollo 11 Moon landing", desc: "Neil Armstrong and Buzz Aldrin walk on the Moon while 650 million people watch live — the farthest humans have ever traveled from Earth." },
     ],
   },
   {
@@ -239,25 +246,233 @@ const THEMES = [
     label: "Wars that redrew the world",
     description: "Large-scale conflicts with lasting geopolitical consequences",
     members: [
-      { year: 1618, wiki: "Thirty_Years%27_War", title: "Thirty Years' War" },
-      { year: 1756, wiki: "Seven_Years%27_War", title: "Seven Years' War" },
-      { year: 1803, wiki: "Napoleonic_Wars", title: "Napoleonic Wars" },
-      { year: 1914, wiki: "World_War_I", title: "World War I" },
-      { year: 1939, wiki: "World_War_II", title: "World War II" },
-      { year: 1947, wiki: "Cold_War", title: "Cold War begins" },
+      { year: 1618, wiki: "Thirty_Years%27_War", altWikis: [], title: "Thirty Years' War", desc: "Europe's deadliest religious war kills up to 8 million. The 1648 Peace of Westphalia establishes the modern concept of sovereign nation-states." },
+      { year: 1756, wiki: "Seven_Years%27_War", altWikis: [], title: "Seven Years' War", desc: "Often called the first truly global war — fought on five continents. Britain emerges as the dominant colonial power." },
+      { year: 1803, wiki: "Napoleonic_Wars", altWikis: ["Napoleon"], title: "Napoleonic Wars", desc: "A decade of conflict spreads French revolutionary ideals across Europe and redraws its political map at the Congress of Vienna in 1815." },
+      { year: 1914, wiki: "World_War_I", altWikis: ["First_World_War"], title: "World War I", desc: "Four years of industrial warfare kill 20 million people, destroy four empires, and set the stage for the century's second, even greater war." },
+      { year: 1939, wiki: "World_War_II", altWikis: ["Second_World_War"], title: "World War II", desc: "The deadliest conflict in human history kills 70–85 million, introduces nuclear weapons, and ends with the United States and Soviet Union as rival superpowers." },
+      { year: 1947, wiki: "Cold_War", altWikis: [], title: "Cold War begins", desc: "The Truman Doctrine formalizes U.S.-Soviet rivalry. A 44-year standoff between two nuclear superpowers defines global politics until 1991." },
     ],
   },
 ];
 
+// ===================================================================
+// CATEGORIES — curated "significant events in a field"
+// Distinct from THEMES: themes are about RECURRENCE (pandemics over
+// time), categories are about COVERAGE (the big moments in Arts
+// regardless of whether they pattern-match). Events matching a
+// category get pinned into their year's top 5 like theme events.
+// ===================================================================
+const CATEGORIES = [
+  {
+    id: "arts",
+    label: "Arts & Culture",
+    description: "Movements, masterworks, and moments that shaped how we create",
+    accent: "#b8739a",
+    members: [
+      { year: -480, wiki: "Classical_Greece", altWikis: ["Classical_antiquity"], title: "Classical Greek art begins", desc: "Following the Persian Wars, Athens enters its Golden Age. Sculpture, architecture, and drama flourish — establishing Western aesthetic ideals." },
+      { year: 105, wiki: "Cai_Lun", altWikis: ["History_of_paper"], title: "Paper invented in China", desc: "Cai Lun standardizes papermaking from tree bark, hemp, and rags — a medium that will carry human culture for two millennia." },
+      { year: 1010, wiki: "The_Tale_of_Genji", altWikis: ["Murasaki_Shikibu"], title: "The Tale of Genji", desc: "Murasaki Shikibu completes what many consider the world's first novel — a Japanese masterpiece of psychological insight predating the European novel by centuries." },
+      { year: 1503, wiki: "Mona_Lisa", altWikis: ["Leonardo_da_Vinci"], title: "Mona Lisa painted", desc: "Leonardo da Vinci begins work on the Mona Lisa, a portrait that will become the most famous painting in the world." },
+      { year: 1605, wiki: "Don_Quixote", altWikis: ["Miguel_de_Cervantes"], title: "Don Quixote published", desc: "Cervantes publishes the first part of Don Quixote — widely considered the first modern novel and a founding work of Western literature." },
+      { year: 1824, wiki: "Symphony_No._9_(Beethoven)", altWikis: ["Ludwig_van_Beethoven"], title: "Beethoven's Ninth Symphony", desc: "Beethoven premieres his Ninth Symphony with the 'Ode to Joy' finale — a towering achievement of the Romantic era, composed while deaf." },
+      { year: 1874, wiki: "Impressionism", altWikis: ["Claude_Monet"], title: "Impressionism debuts", desc: "The first Impressionist exhibition in Paris breaks with academic painting. Monet, Degas, and Renoir redefine what art can capture." },
+      { year: 1913, wiki: "The_Rite_of_Spring", altWikis: ["Igor_Stravinsky"], title: "The Rite of Spring premieres", desc: "Stravinsky's ballet causes a riot at its Paris premiere. Its dissonance and rhythm shatter classical music conventions and launch modernism." },
+      { year: 1939, wiki: "Gone_with_the_Wind_(film)", altWikis: ["Classical_Hollywood_cinema"], title: "Golden Age of Hollywood peak", desc: "Gone with the Wind and The Wizard of Oz release. Studio-era Hollywood reaches its commercial and technical peak." },
+      { year: 1967, wiki: "Sgt._Pepper%27s_Lonely_Hearts_Club_Band", altWikis: ["The_Beatles"], title: "Sgt. Pepper's Lonely Hearts Club Band", desc: "The Beatles redefine the album as an art form and mark popular music's full embrace of the avant-garde." },
+    ],
+  },
+  {
+    id: "science",
+    label: "Science",
+    description: "Discoveries that expanded humanity's understanding of the universe",
+    accent: "#7ba8d4",
+    members: [
+      { year: -240, wiki: "Eratosthenes", altWikis: [], title: "Eratosthenes measures Earth", desc: "Eratosthenes calculates Earth's circumference using shadows and geometry — accurate to within a few percent, using only ancient mathematics." },
+      { year: 1021, wiki: "Book_of_Optics", altWikis: ["Ibn_al-Haytham"], title: "Ibn al-Haytham's Book of Optics", desc: "Ibn al-Haytham publishes the Book of Optics, founding modern optical science and establishing the experimental method centuries before Europe did." },
+      { year: 1610, wiki: "Sidereus_Nuncius", altWikis: ["Galileo_Galilei"], title: "Galileo's Sidereus Nuncius", desc: "Galileo publishes telescopic observations of the moon, Jupiter's moons, and countless stars — providing concrete evidence for the Copernican model." },
+      { year: 1869, wiki: "Periodic_table", altWikis: ["Dmitri_Mendeleev"], title: "Mendeleev's periodic table", desc: "Mendeleev publishes the periodic table, correctly predicting the existence and properties of elements not yet discovered." },
+      { year: 1896, wiki: "Radioactivity", altWikis: ["Henri_Becquerel", "Marie_Curie"], title: "Radioactivity discovered", desc: "Becquerel discovers radioactivity; Marie and Pierre Curie soon isolate polonium and radium — opening the atomic age." },
+      { year: 1915, wiki: "General_relativity", altWikis: ["Albert_Einstein"], title: "General relativity", desc: "Einstein completes general relativity, redefining gravity as curvature of spacetime. Confirmed during the 1919 eclipse, making him a global celebrity." },
+      { year: 1928, wiki: "Penicillin", altWikis: ["Alexander_Fleming"], title: "Penicillin discovered", desc: "Alexander Fleming notices mold killing bacteria in a petri dish — the accidental discovery that launches the antibiotic era." },
+      { year: 1964, wiki: "Cosmic_microwave_background", altWikis: ["Big_Bang"], title: "Cosmic microwave background", desc: "Penzias and Wilson detect the afterglow of the Big Bang — decisive evidence for the expanding universe." },
+      { year: 1996, wiki: "Dolly_(sheep)", altWikis: ["Cloning"], title: "Dolly the sheep cloned", desc: "Scientists at the Roslin Institute clone the first mammal from an adult cell — opening biotechnology's most profound ethical questions." },
+      { year: 2012, wiki: "Higgs_boson", altWikis: ["Large_Hadron_Collider"], title: "Higgs boson detected", desc: "CERN announces discovery of the Higgs boson, confirming the mechanism by which fundamental particles gain mass." },
+    ],
+  },
+  {
+    id: "politics",
+    label: "Politics",
+    description: "Moments that transformed how societies organize power",
+    accent: "#c9532b",
+    members: [
+      { year: -508, wiki: "Athenian_democracy", altWikis: ["Cleisthenes"], title: "Athenian democracy founded", desc: "Cleisthenes' reforms establish the world's first democracy in Athens — direct rule by (male) citizens, inspiring political thought for 2,500 years." },
+      { year: -221, wiki: "Qin_dynasty", altWikis: ["Qin_Shi_Huang"], title: "Qin unifies China", desc: "Qin Shi Huang conquers the warring states and creates the first unified Chinese empire — standardizing writing, currency, and measurement." },
+      { year: 1215, wiki: "Magna_Carta", altWikis: [], title: "Magna Carta signed", desc: "King John of England is forced to seal Magna Carta, limiting royal power and establishing that law applies even to the king — a foundation of constitutional government." },
+      { year: 1648, wiki: "Peace_of_Westphalia", altWikis: ["Treaty_of_Westphalia"], title: "Peace of Westphalia", desc: "Ends the Thirty Years' War and establishes the principle of sovereign nation-states — the organizing logic of modern international relations." },
+      { year: 1787, wiki: "Constitution_of_the_United_States", altWikis: ["United_States_Constitution"], title: "U.S. Constitution drafted", desc: "The U.S. Constitutional Convention drafts the world's oldest written national constitution still in use — establishing separation of powers and federalism." },
+      { year: 1863, wiki: "Emancipation_Proclamation", altWikis: ["Abraham_Lincoln"], title: "Emancipation Proclamation", desc: "Lincoln declares enslaved people in Confederate states free — a turning point in the American Civil War and in global abolition." },
+      { year: 1893, wiki: "Women%27s_suffrage_in_New_Zealand", altWikis: ["Women%27s_suffrage"], title: "New Zealand grants women the vote", desc: "New Zealand becomes the first self-governing country to grant women the right to vote — beginning a wave that will span the century." },
+      { year: 1948, wiki: "Universal_Declaration_of_Human_Rights", altWikis: [], title: "Universal Declaration of Human Rights", desc: "The UN General Assembly adopts the first global articulation of fundamental human rights — still the most-translated document in history." },
+      { year: 1964, wiki: "Civil_Rights_Act_of_1964", altWikis: ["Civil_rights_movement"], title: "U.S. Civil Rights Act", desc: "Outlaws discrimination based on race, religion, sex, and national origin — a landmark victory of the American civil rights movement." },
+      { year: 1994, wiki: "1994_South_African_general_election", altWikis: ["Nelson_Mandela", "Apartheid"], title: "End of apartheid in South Africa", desc: "South Africa holds its first fully democratic election. Nelson Mandela is elected president after 27 years in prison." },
+    ],
+  },
+  {
+    id: "religion",
+    label: "Religion & Philosophy",
+    description: "Events that shaped religious institutions and belief systems",
+    accent: "#a48fc2",
+    members: [
+      { year: -500, wiki: "Siddhartha_Gautama", altWikis: ["Buddhism", "Axial_Age"], title: "Buddha's teachings", desc: "Siddhartha Gautama teaches in northern India, founding Buddhism — one of the great 'Axial Age' traditions that reshaped how humans think about ethics and consciousness." },
+      { year: -400, wiki: "Confucius", altWikis: ["Confucianism"], title: "Confucian philosophy", desc: "Confucius's disciples compile the Analects after his death. His ethical system will shape Chinese and East Asian societies for 2,500 years." },
+      { year: 33, wiki: "Crucifixion_of_Jesus", altWikis: ["Jesus", "Christianity"], title: "Crucifixion of Jesus", desc: "The execution of Jesus under Pontius Pilate becomes the foundational event of Christianity, which over three centuries will become the Roman Empire's official religion." },
+      { year: 313, wiki: "Edict_of_Milan", altWikis: ["Constantine_the_Great"], title: "Edict of Milan", desc: "Constantine and Licinius legalize Christianity across the Roman Empire — ending centuries of persecution and beginning Christianity's rise as a world religion." },
+      { year: 622, wiki: "Hijra_(Islam)", altWikis: ["Muhammad"], title: "Muhammad's Hijra", desc: "Muhammad migrates from Mecca to Medina, founding the first Muslim community. Year 1 of the Islamic calendar." },
+      { year: 1054, wiki: "East%E2%80%93West_Schism", altWikis: ["Great_Schism"], title: "East-West Schism", desc: "Christianity splits into Roman Catholic and Eastern Orthodox branches — a division that continues to this day." },
+      { year: 1517, wiki: "Ninety-five_Theses", altWikis: ["Protestant_Reformation", "Martin_Luther"], title: "Luther's 95 Theses", desc: "Martin Luther posts his critique of Catholic indulgences, igniting the Protestant Reformation that will fracture Western Christianity." },
+      { year: 1869, wiki: "First_Vatican_Council", altWikis: [], title: "First Vatican Council", desc: "Declares papal infallibility on matters of faith and morals — a doctrine that reshapes Catholicism's internal authority." },
+      { year: 1965, wiki: "Second_Vatican_Council", altWikis: ["Vatican_II"], title: "Second Vatican Council concludes", desc: "The most consequential Catholic council in 400 years ends — modernizing liturgy, embracing religious pluralism, and reshaping Catholicism's relationship with the modern world." },
+    ],
+  },
+  {
+    id: "economics",
+    label: "Economics & Trade",
+    description: "Shifts in how humans produce, exchange, and organize work",
+    accent: "#d4a856",
+    members: [
+      { year: -600, wiki: "Coin", altWikis: ["Lydia"], title: "Coinage invented", desc: "The kingdom of Lydia mints the first standardized coins — enabling commerce at a scale previously impossible." },
+      { year: 1200, wiki: "Hanseatic_League", altWikis: ["Medieval_commerce"], title: "Medieval trade networks expand", desc: "The Hanseatic League begins organizing Baltic and North Sea trade — one of history's first formal economic unions." },
+      { year: 1602, wiki: "Dutch_East_India_Company", altWikis: ["VOC"], title: "Dutch East India Company founded", desc: "The world's first publicly traded joint-stock corporation is founded, pioneering corporate capitalism and launching the modern stock market." },
+      { year: 1776, wiki: "The_Wealth_of_Nations", altWikis: ["Adam_Smith"], title: "Adam Smith's Wealth of Nations", desc: "Adam Smith publishes the foundational text of modern economics, arguing for free markets and the 'invisible hand' of competition." },
+      { year: 1848, wiki: "The_Communist_Manifesto", altWikis: ["Karl_Marx"], title: "Communist Manifesto published", desc: "Marx and Engels publish their critique of capitalism. Their ideas will reshape politics, economics, and labor movements for the next 150 years." },
+      { year: 1913, wiki: "Assembly_line", altWikis: ["Henry_Ford"], title: "Ford's assembly line", desc: "Henry Ford installs the first moving assembly line at Highland Park — slashing car production time from 12 hours to 90 minutes and creating the mass-consumer economy." },
+      { year: 1944, wiki: "Bretton_Woods_Conference", altWikis: ["Bretton_Woods_system"], title: "Bretton Woods Conference", desc: "44 nations establish the post-war global financial order: fixed exchange rates, the IMF, and the World Bank. The dollar becomes the anchor currency." },
+      { year: 1971, wiki: "Nixon_shock", altWikis: ["End_of_the_Bretton_Woods_system"], title: "End of gold standard", desc: "Nixon ends dollar convertibility to gold, launching the era of fiat currencies and floating exchange rates that defines modern finance." },
+      { year: 2001, wiki: "China_and_the_World_Trade_Organization", altWikis: ["World_Trade_Organization"], title: "China joins the WTO", desc: "China's WTO accession accelerates globalization, lifts hundreds of millions out of poverty, and reshapes global supply chains." },
+      { year: 2009, wiki: "Bitcoin", altWikis: ["Cryptocurrency", "Satoshi_Nakamoto"], title: "Bitcoin launched", desc: "Satoshi Nakamoto mines the first Bitcoin block — a proof-of-concept for decentralized money that will spawn an entire cryptocurrency industry." },
+    ],
+  },
+  {
+    id: "sports",
+    label: "Sports",
+    description: "Moments that defined athletic competition and its cultural power",
+    accent: "#8fc89a",
+    members: [
+      { year: -776, wiki: "Ancient_Olympic_Games", altWikis: [], title: "First ancient Olympic Games", desc: "The first recorded Olympic Games are held at Olympia, Greece — beginning a tradition of pan-Hellenic athletic competition that lasts over a thousand years." },
+      { year: 1863, wiki: "The_Football_Association", altWikis: ["Association_football"], title: "Modern football codified", desc: "The Football Association is formed in England, standardizing the rules of the game and launching what will become the world's most popular sport." },
+      { year: 1869, wiki: "Cincinnati_Red_Stockings_(1869)", altWikis: ["Baseball"], title: "First professional baseball team", desc: "The Cincinnati Red Stockings become baseball's first openly all-professional team, launching American professional sports as a commercial enterprise." },
+      { year: 1896, wiki: "1896_Summer_Olympics", altWikis: ["Modern_Olympic_Games"], title: "First modern Olympics", desc: "Athens hosts the first modern Olympic Games — 14 nations, 241 athletes (all men). The Games will become the world's preeminent sporting event." },
+      { year: 1936, wiki: "1936_Summer_Olympics", altWikis: ["Jesse_Owens"], title: "Jesse Owens in Berlin", desc: "Jesse Owens wins four gold medals at Hitler's Berlin Olympics — a defiant repudiation of Nazi racial ideology seen by the whole world." },
+      { year: 1947, wiki: "Jackie_Robinson", altWikis: [], title: "Jackie Robinson breaks MLB color barrier", desc: "Jackie Robinson debuts with the Brooklyn Dodgers, ending six decades of racial segregation in Major League Baseball — a civil rights milestone beyond sports." },
+      { year: 1954, wiki: "Four-minute_mile", altWikis: ["Roger_Bannister"], title: "Four-minute mile broken", desc: "Roger Bannister runs a mile in under four minutes, shattering a barrier many believed physically impossible." },
+      { year: 1970, wiki: "1970_FIFA_World_Cup", altWikis: ["Pel%C3%A9"], title: "Brazil wins with Pelé", desc: "Brazil wins its third World Cup, cementing Pelé's legacy as football's greatest player. The tournament is the first broadcast live in color worldwide." },
+      { year: 1980, wiki: "Miracle_on_Ice", altWikis: ["1980_Winter_Olympics"], title: "Miracle on Ice", desc: "At Lake Placid, the U.S. college hockey team beats the Soviet team — a Cold War-era upset that transcends sport." },
+      { year: 1995, wiki: "1995_Rugby_World_Cup_Final", altWikis: ["Nelson_Mandela"], title: "Mandela and the Rugby World Cup", desc: "South Africa wins the Rugby World Cup; Mandela wears the Springbok jersey to present the trophy — a moment of national reconciliation after apartheid." },
+    ],
+  },
+  {
+    id: "medicine",
+    label: "Medicine & Health",
+    description: "Breakthroughs that changed human survival and suffering",
+    accent: "#c28a7a",
+    members: [
+      { year: -400, wiki: "Hippocrates", altWikis: ["Hippocratic_Oath"], title: "Hippocratic medicine", desc: "Hippocrates founds a school of medicine that separates disease from superstition and establishes ethical principles doctors still cite today." },
+      { year: 1025, wiki: "The_Canon_of_Medicine", altWikis: ["Avicenna"], title: "Avicenna's Canon of Medicine", desc: "Ibn Sina completes the Canon of Medicine — a medical encyclopedia that will be the standard reference across Europe and the Islamic world for 600 years." },
+      { year: 1628, wiki: "De_Motu_Cordis", altWikis: ["William_Harvey"], title: "Harvey describes blood circulation", desc: "William Harvey publishes his discovery that blood circulates through the body in a closed loop — overturning 1,500 years of Galenic medicine." },
+      { year: 1796, wiki: "Smallpox_vaccine", altWikis: ["Edward_Jenner"], title: "First vaccine", desc: "Edward Jenner demonstrates that cowpox exposure protects against smallpox — the first vaccine, foundational for all immunization since." },
+      { year: 1867, wiki: "Antiseptic", altWikis: ["Joseph_Lister"], title: "Antiseptic surgery", desc: "Joseph Lister pioneers antiseptic surgical techniques using carbolic acid — slashing post-operative mortality and making modern surgery possible." },
+      { year: 1895, wiki: "X-ray", altWikis: ["Wilhelm_R%C3%B6ntgen"], title: "X-rays discovered", desc: "Röntgen discovers X-rays, giving doctors their first non-invasive view inside the human body. He'll win the first Nobel Prize in Physics." },
+      { year: 1921, wiki: "Insulin", altWikis: ["Frederick_Banting"], title: "Insulin discovered", desc: "Banting and Best isolate insulin and successfully treat diabetic patients — transforming what had been a death sentence into a manageable condition." },
+      { year: 1954, wiki: "Polio_vaccine", altWikis: ["Jonas_Salk"], title: "Polio vaccine", desc: "Jonas Salk's polio vaccine is successfully tested — leading to near-eradication of a disease that paralyzed hundreds of thousands of children yearly." },
+      { year: 1978, wiki: "In_vitro_fertilisation", altWikis: ["Louise_Brown"], title: "First IVF baby born", desc: "Louise Brown, the first baby born via in vitro fertilization, arrives in England — revolutionizing reproductive medicine." },
+      { year: 2003, wiki: "Human_Genome_Project", altWikis: [], title: "Human Genome Project completed", desc: "Scientists publish the full human genome sequence after 13 years of work — laying the foundation for genomic medicine." },
+    ],
+  },
+  {
+    id: "architecture",
+    label: "Architecture",
+    description: "Buildings and structures that reshaped how we inhabit space",
+    accent: "#c89a5c",
+    members: [
+      { year: -2560, wiki: "Great_Pyramid_of_Giza", altWikis: ["Giza_pyramid_complex"], title: "Great Pyramid of Giza", desc: "The Great Pyramid is completed for Pharaoh Khufu — the tallest human-made structure for nearly 4,000 years and the only surviving Wonder of the Ancient World." },
+      { year: 70, wiki: "Colosseum", altWikis: [], title: "Roman Colosseum begun", desc: "Construction begins on the Flavian Amphitheatre (Colosseum) in Rome — a concrete-and-stone marvel that hosted 50,000 spectators for nearly 400 years." },
+      { year: 537, wiki: "Hagia_Sophia", altWikis: [], title: "Hagia Sophia completed", desc: "Emperor Justinian's cathedral is completed in Constantinople. Its massive dome will be the world's largest for a thousand years." },
+      { year: 1163, wiki: "Notre-Dame_de_Paris", altWikis: ["Gothic_architecture"], title: "Notre-Dame de Paris begun", desc: "Construction begins on Notre-Dame Cathedral — a defining work of Gothic architecture whose flying buttresses and pointed arches will inspire builders across Europe." },
+      { year: 1506, wiki: "St._Peter%27s_Basilica", altWikis: [], title: "St. Peter's Basilica begun", desc: "Construction of St. Peter's Basilica in Rome begins. Over 120 years, architects including Bramante, Michelangelo, and Bernini will shape it." },
+      { year: 1648, wiki: "Taj_Mahal", altWikis: [], title: "Taj Mahal completed", desc: "Emperor Shah Jahan completes the Taj Mahal in Agra — a white marble mausoleum for his wife Mumtaz Mahal, widely regarded as the pinnacle of Mughal architecture." },
+      { year: 1889, wiki: "Eiffel_Tower", altWikis: [], title: "Eiffel Tower completed", desc: "Built for the Paris World's Fair as a temporary structure, the Eiffel Tower becomes the world's tallest building and demonstrates iron as a modern architectural material." },
+      { year: 1931, wiki: "Empire_State_Building", altWikis: [], title: "Empire State Building opens", desc: "Built in just 410 days during the Great Depression, the Empire State Building becomes the world's tallest building for 40 years — a symbol of American ambition." },
+      { year: 1973, wiki: "Sydney_Opera_House", altWikis: [], title: "Sydney Opera House opens", desc: "Jørn Utzon's iconic shell-like design, 14 years in construction, opens in Sydney Harbour — one of the 20th century's most recognizable buildings." },
+      { year: 2010, wiki: "Burj_Khalifa", altWikis: [], title: "Burj Khalifa completed", desc: "The Burj Khalifa in Dubai opens as the world's tallest building at 828 meters — more than twice the height of the Empire State Building." },
+    ],
+  },
+];
+
+// Build index for categories (same pattern as THEME_INDEX)
+const CATEGORY_INDEX = (() => {
+  const idx = new Map();
+  for (const category of CATEGORIES) {
+    for (const member of category.members) {
+      const keys = [member.wiki, ...(member.altWikis || [])];
+      for (const key of keys) {
+        if (!key) continue;
+        if (!idx.has(key)) idx.set(key, []);
+        idx.get(key).push({ category, member });
+      }
+    }
+  }
+  return idx;
+})();
+
+// Build a year → category-members index for pinning into top 5
+const CATEGORY_MEMBERS_BY_YEAR = (() => {
+  const idx = new Map();
+  for (const category of CATEGORIES) {
+    for (const member of category.members) {
+      if (!idx.has(member.year)) idx.set(member.year, []);
+      idx.get(member.year).push(member);
+    }
+  }
+  return idx;
+})();
+
+// Build a year → category-id-set index (for quick lookup: "which categories does this year belong to?")
+const CATEGORY_IDS_BY_YEAR = (() => {
+  const idx = new Map();
+  for (const category of CATEGORIES) {
+    for (const member of category.members) {
+      if (!idx.has(member.year)) idx.set(member.year, new Set());
+      idx.get(member.year).add(category.id);
+    }
+  }
+  return idx;
+})();
+
 // Build a reverse index: wiki_slug → [themes it belongs to]
-// Computed once at module load, used at every event render.
+// Indexes BOTH the primary wiki slug AND all alternate slugs.
 const THEME_INDEX = (() => {
   const idx = new Map();
   for (const theme of THEMES) {
     for (const member of theme.members) {
-      const key = member.wiki;
-      if (!idx.has(key)) idx.set(key, []);
-      idx.get(key).push({ theme, member });
+      const keys = [member.wiki, ...(member.altWikis || [])];
+      for (const key of keys) {
+        if (!key) continue;
+        if (!idx.has(key)) idx.set(key, []);
+        idx.get(key).push({ theme, member });
+      }
+    }
+  }
+  return idx;
+})();
+
+// Build a "year → theme members" index for theme-boost during ranking
+const THEME_MEMBERS_BY_YEAR = (() => {
+  const idx = new Map();
+  for (const theme of THEMES) {
+    for (const member of theme.members) {
+      if (!idx.has(member.year)) idx.set(member.year, []);
+      idx.get(member.year).push(member);
     }
   }
   return idx;
@@ -710,13 +925,27 @@ export default function CenturyCompare() {
   const [expanded, setExpanded] = useState(null);
   const [showDeepTime, setShowDeepTime] = useState(false);
   const [sigPage, setSigPage] = useState(0);
+  const [activeCat, setActiveCat] = useState("all"); // "all" | category.id
   // Previews: year -> { loading, preview: string|null }
   const [previews, setPreviews] = useState({});
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
-  const totalSigPages = Math.ceil(SIGNIFICANT_YEARS.length / SIGNIFICANT_PAGE_SIZE);
-  const pageYears = SIGNIFICANT_YEARS.slice(sigPage * SIGNIFICANT_PAGE_SIZE, (sigPage + 1) * SIGNIFICANT_PAGE_SIZE);
+  // When a category is active, show only years that have an event in that category.
+  // Otherwise show the full SIGNIFICANT_YEARS list.
+  const filteredYears = useMemo(() => {
+    if (activeCat === "all") return SIGNIFICANT_YEARS;
+    const cat = CATEGORIES.find((c) => c.id === activeCat);
+    if (!cat) return SIGNIFICANT_YEARS;
+    // Return the category's member years, sorted newest first
+    return [...cat.members].sort((a, b) => b.year - a.year).map((m) => m.year);
+  }, [activeCat]);
+
+  // Reset pagination when category changes
+  useEffect(() => { setSigPage(0); }, [activeCat]);
+
+  const totalSigPages = Math.max(1, Math.ceil(filteredYears.length / SIGNIFICANT_PAGE_SIZE));
+  const pageYears = filteredYears.slice(sigPage * SIGNIFICANT_PAGE_SIZE, (sigPage + 1) * SIGNIFICANT_PAGE_SIZE);
 
   // Progressively load previews for the current page of years
   useEffect(() => {
@@ -847,7 +1076,7 @@ export default function CenturyCompare() {
             </span>
             <button
               onClick={() => setSigPage((p) => Math.min(totalSigPages - 1, p + 1))}
-              disabled={sigPage === totalSigPages - 1}
+              disabled={sigPage >= totalSigPages - 1}
               className="p-1 transition-opacity disabled:opacity-30"
               style={{ color: "#d4a856" }}
               aria-label="Next"
@@ -855,6 +1084,44 @@ export default function CenturyCompare() {
               <ChevronRight size={16} />
             </button>
           </div>
+        </div>
+
+        {/* Category filter chips */}
+        <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <button
+            onClick={() => setActiveCat("all")}
+            className="text-[10px] uppercase tracking-widest px-2.5 py-1 transition-all shrink-0"
+            style={{
+              background: activeCat === "all" ? "#d4a856" : "transparent",
+              color: activeCat === "all" ? "#1a1612" : "#d4a856",
+              border: "1px solid #d4a85680",
+              fontFamily: "'JetBrains Mono', monospace",
+              borderRadius: "2px",
+              fontWeight: activeCat === "all" ? 700 : 400,
+            }}
+          >
+            All
+          </button>
+          {CATEGORIES.map((cat) => {
+            const isActive = activeCat === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCat(cat.id)}
+                className="text-[10px] uppercase tracking-widest px-2.5 py-1 transition-all shrink-0"
+                style={{
+                  background: isActive ? cat.accent : "transparent",
+                  color: isActive ? "#1a1612" : cat.accent,
+                  border: `1px solid ${cat.accent}80`,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  borderRadius: "2px",
+                  fontWeight: isActive ? 700 : 400,
+                }}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -865,6 +1132,12 @@ export default function CenturyCompare() {
               ? `${Math.floor((year - 1) / 100) + 1}${ordinalSuffix(Math.floor((year - 1) / 100) + 1)} century`
               : `${Math.floor((Math.abs(year) - 1) / 100) + 1}${ordinalSuffix(Math.floor((Math.abs(year) - 1) / 100) + 1)} century BCE`;
             const preview = previews[year];
+            // When a category is active, look up the category member for this year
+            // and show its title directly (no async loading needed).
+            const activeCatMember = activeCat !== "all"
+              ? CATEGORIES.find((c) => c.id === activeCat)?.members.find((m) => m.year === year)
+              : null;
+            const activeCatData = activeCat !== "all" ? CATEGORIES.find((c) => c.id === activeCat) : null;
             return (
               <button
                 key={year}
@@ -880,7 +1153,12 @@ export default function CenturyCompare() {
                   {formatYear(year)}
                 </span>
                 <span className="text-xs leading-snug flex-1 min-w-0" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {preview?.loading ? (
+                  {activeCatMember ? (
+                    <>
+                      <span style={{ color: "#f5ead0", fontWeight: 600 }}>{activeCatMember.title}</span>
+                      <span className="block mt-0.5 text-[10px]" style={{ color: activeCatData?.accent || "#6c5a3a" }}>{activeCatData?.label}</span>
+                    </>
+                  ) : preview?.loading ? (
                     <span style={{ opacity: 0.6 }}>Loading…</span>
                   ) : preview?.preview ? (
                     <>
@@ -956,6 +1234,72 @@ export default function CenturyCompare() {
   );
 }
 
+// Given the ranked events list for a year, ensure that any curated
+// theme member for this year is present. If the theme event isn't
+// already in the list, inject it at position 0 (top), dropping the
+// last-ranked pageview event to keep the list at 5.
+//
+// This guarantees that curated "history repeats" moments surface in
+// each year's top 5 even when pageview ranking would bury them.
+// Merge curated events (from themes AND categories) into the ranked events list.
+// Any theme/category member for this year gets pinned at the top if not already
+// represented. Category events carry their category info for UI display.
+function mergeThemeEvents(events, year) {
+  const themeMembers = THEME_MEMBERS_BY_YEAR.get(year) || [];
+  const categoryMembers = CATEGORY_MEMBERS_BY_YEAR.get(year) || [];
+  if (themeMembers.length === 0 && categoryMembers.length === 0) return events;
+
+  const eventsCopy = [...events];
+  const presentSlugs = new Set(
+    eventsCopy.flatMap((e) => [e.wiki, ...(e.allLinks || [])].filter(Boolean))
+  );
+
+  // Helper to inject a synthetic event at the top, dropping the last one to stay at 5
+  const inject = (synthetic) => {
+    eventsCopy.unshift(synthetic);
+    if (eventsCopy.length > 5) eventsCopy.pop();
+    // Track that this slug is now present so we don't double-inject
+    for (const s of synthetic.allLinks || []) presentSlugs.add(s);
+  };
+
+  for (const member of themeMembers) {
+    const memberSlugs = [member.wiki, ...(member.altWikis || [])];
+    const alreadyPresent = memberSlugs.some((s) => presentSlugs.has(s));
+    if (alreadyPresent) continue;
+    const theme = THEMES.find((t) => t.members.includes(member));
+    inject({
+      title: member.title,
+      body: member.desc || `Part of the ${theme?.label || "recurring"} theme — see related events across history below.`,
+      wiki: member.wiki,
+      allLinks: memberSlugs,
+      datePrefix: null,
+      sectionAnchor: null,
+      _themeInjected: true,
+      _themeLabel: theme?.label,
+    });
+  }
+
+  for (const member of categoryMembers) {
+    const memberSlugs = [member.wiki, ...(member.altWikis || [])];
+    const alreadyPresent = memberSlugs.some((s) => presentSlugs.has(s));
+    if (alreadyPresent) continue;
+    const category = CATEGORIES.find((c) => c.members.includes(member));
+    inject({
+      title: member.title,
+      body: member.desc || `Significant event in ${category?.label || "this field"}.`,
+      wiki: member.wiki,
+      allLinks: memberSlugs,
+      datePrefix: null,
+      sectionAnchor: null,
+      _categoryInjected: true,
+      _categoryLabel: category?.label,
+      _categoryAccent: category?.accent,
+    });
+  }
+
+  return eventsCopy;
+}
+
 function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpanded, onJumpTo }) {
   const [wikiEvents, setWikiEvents] = useState(null);
   const [loading, setLoading] = useState(!isFuture);
@@ -970,7 +1314,7 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
     fetchRankedEvents(year).then((result) => {
       if (cancelled) return;
       if (result?.events) {
-        setWikiEvents(result.events);
+        setWikiEvents(mergeThemeEvents(result.events, year));
         setFromCache(result.cached || false);
       } else {
         setFetchError(result?.error || "Unknown error");
@@ -1163,6 +1507,16 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
                         {event.datePrefix && (
                           <div className="text-[10px] uppercase tracking-widest mb-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
                             {event.datePrefix}
+                          </div>
+                        )}
+                        {event._themeInjected && (
+                          <div className="text-[10px] uppercase tracking-widest mb-1 flex items-center gap-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+                            <Sparkles size={10} /> Pinned · recurring pattern
+                          </div>
+                        )}
+                        {event._categoryInjected && (
+                          <div className="text-[10px] uppercase tracking-widest mb-1 flex items-center gap-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: event._categoryAccent || accent }}>
+                            <Sparkles size={10} /> Significant in {event._categoryLabel}
                           </div>
                         )}
                         <h3 className="text-base md:text-lg font-semibold leading-snug" style={{ color: "#f5ead0" }}>
