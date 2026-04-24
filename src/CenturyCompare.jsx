@@ -136,6 +136,11 @@ function currentYear() { return new Date().getFullYear(); }
 function formatToday() {
   return new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
+function ordinalSuffix(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
 
 // Wikipedia page name candidates. Order matters — we try these in sequence.
 // For ambiguous short years (like "12"), AD_12 must come first.
@@ -282,15 +287,16 @@ async function fetchWikipediaCandidates(year) {
       if (!eventsHeading) continue;
 
       const eventsIdx = allHeadings.indexOf(eventsHeading);
-      const stopHeadings = ["births", "deaths", "references", "see also", "external links", "notes", "publications", "new works", "by topic", "by place", "by category"];
+      // Strong stop signals — these definitively mark the end of events
+      const strongStops = ["births", "deaths", "references", "see also", "external links", "notes", "publications", "new works"];
       let stopHeading = null;
       for (let i = eventsIdx + 1; i < allHeadings.length; i++) {
         const h = allHeadings[i];
         if (h.tagName !== "H2") continue;
         const t = (h.textContent || "").trim().toLowerCase().replace(/\[edit\]/g, "").trim();
-        if (stopHeadings.some((s) => t === s || t.startsWith(s))) { stopHeading = h; break; }
-        stopHeading = h;
-        break;
+        // Only stop at strong signals — older year pages have "By place" / "By topic" H2s
+        // that still contain Events content, so skip those
+        if (strongStops.some((s) => t === s || t.startsWith(s))) { stopHeading = h; break; }
       }
 
       const startContainer = eventsHeading.closest(".mw-heading") || eventsHeading;
@@ -320,7 +326,7 @@ async function fetchWikipediaCandidates(year) {
       const parsed = collected.map(({ li, section }) => {
         li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
         const text = li.textContent.trim();
-        if (!text || text.length < 25) return null;
+        if (!text || text.length < 15) return null;
 
         // Collect all wiki links; filter out generic ones for anchor selection
         const allLinkSlugs = Array.from(li.querySelectorAll("a[href^='/wiki/']"))
@@ -342,7 +348,7 @@ async function fetchWikipediaCandidates(year) {
         return true;
       });
 
-      if (unique.length > 0) return { candidates: unique.slice(0, 30), pageName };
+      if (unique.length > 0) return { candidates: unique.slice(0, 50), pageName };
     } catch { /* try next */ }
   }
   return { error: "No Wikipedia page found" };
@@ -428,10 +434,11 @@ function buildStack(anchor) {
   const cy = currentYear();
   const items = [];
 
-  // Centuries after anchor — stop at current year, then optionally one future century
-  for (let i = 3; i >= 1; i--) {
+  // Centuries after anchor — walk forward until we reach current year + 1 future century
+  // (cap at 10 to prevent absurd stacks for very ancient anchors)
+  const maxForward = Math.min(10, Math.ceil((cy + 100 - anchor) / 100));
+  for (let i = maxForward; i >= 1; i--) {
     const target = anchor + 100 * i;
-    // Show if it's in the past (< cy) or exactly at cy, or one century into the future
     if (target <= cy + 100) {
       items.push({ year: target, isAnchor: false, offset: 100 * i, isFuture: target > cy });
     }
@@ -483,7 +490,12 @@ export default function CenturyCompare() {
       setAnchor(n);
       setExpanded(null);
       setShowDeepTime(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Scroll to anchor after render
+      setTimeout(() => {
+        const el = document.getElementById(`year-${n}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        else window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
     }
   };
 
@@ -492,7 +504,11 @@ export default function CenturyCompare() {
     setAnchor(y);
     setExpanded(null);
     setShowDeepTime(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      const el = document.getElementById(`year-${y}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 100);
   };
 
   return (
@@ -577,6 +593,10 @@ export default function CenturyCompare() {
         <div className="flex flex-col gap-1">
           {pageYears.map((year) => {
             const active = anchor === year;
+            // Compute century label
+            const centuryLabel = year > 0
+              ? `${Math.floor((year - 1) / 100) + 1}${ordinalSuffix(Math.floor((year - 1) / 100) + 1)} century`
+              : `${Math.floor((Math.abs(year) - 1) / 100) + 1}${ordinalSuffix(Math.floor((Math.abs(year) - 1) / 100) + 1)} century BCE`;
             return (
               <button
                 key={year}
@@ -592,7 +612,7 @@ export default function CenturyCompare() {
                   {formatYear(year)}
                 </span>
                 <span className="text-xs" style={{ color: "#9a8b6f", fontFamily: "'JetBrains Mono', monospace" }}>
-                  top events by pageviews
+                  {centuryLabel}
                 </span>
               </button>
             );
@@ -698,7 +718,7 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
   // Future year block
   if (isFuture) {
     return (
-      <section style={{
+      <section id={`year-${year}`} style={{
         background: isAnchor ? "#2a2218" : "transparent",
         padding: isAnchor ? "20px" : "0",
         border: isAnchor ? `1px solid ${accent}40` : "none",
@@ -792,7 +812,7 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
   }
 
   return (
-    <section style={{
+    <section id={`year-${year}`} style={{
       background: isAnchor ? "#2a2218" : "transparent",
       padding: isAnchor ? "20px" : "0",
       border: isAnchor ? `1px solid ${accent}40` : "none",
