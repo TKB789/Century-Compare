@@ -1138,6 +1138,19 @@ export default function CenturyCompare() {
               ? CATEGORIES.find((c) => c.id === activeCat)?.members.find((m) => m.year === year)
               : null;
             const activeCatData = activeCat !== "all" ? CATEGORIES.find((c) => c.id === activeCat) : null;
+            // In "All" mode, prefer showing a curated theme or category event for this
+            // year if one exists. This ensures the list reflects our curated list
+            // rather than showing random pageview-ranked events. Falls back to the
+            // pageview preview only when no curated event exists for the year.
+            const curatedForAll = activeCat === "all"
+              ? (() => {
+                  const catMember = CATEGORIES.flatMap((c) => c.members.map((m) => ({ ...m, catLabel: c.label, catAccent: c.accent }))).find((m) => m.year === year);
+                  if (catMember) return { title: catMember.title, label: catMember.catLabel, accent: catMember.catAccent };
+                  const themeMember = THEMES.flatMap((t) => t.members.map((m) => ({ ...m, themeLabel: t.label }))).find((m) => m.year === year);
+                  if (themeMember) return { title: themeMember.title, label: themeMember.themeLabel, accent: "#d4a856" };
+                  return null;
+                })()
+              : null;
             return (
               <button
                 key={year}
@@ -1157,6 +1170,11 @@ export default function CenturyCompare() {
                     <>
                       <span style={{ color: "#f5ead0", fontWeight: 600 }}>{activeCatMember.title}</span>
                       <span className="block mt-0.5 text-[10px]" style={{ color: activeCatData?.accent || "#6c5a3a" }}>{activeCatData?.label}</span>
+                    </>
+                  ) : curatedForAll ? (
+                    <>
+                      <span style={{ color: "#f5ead0", fontWeight: 600 }}>{curatedForAll.title}</span>
+                      <span className="block mt-0.5 text-[10px]" style={{ color: curatedForAll.accent }}>{curatedForAll.label}</span>
                     </>
                   ) : preview?.loading ? (
                     <span style={{ opacity: 0.6 }}>Loading…</span>
@@ -1244,12 +1262,33 @@ export default function CenturyCompare() {
 // Merge curated events (from themes AND categories) into the ranked events list.
 // Any theme/category member for this year gets pinned at the top if not already
 // represented. Category events carry their category info for UI display.
+// Also cleans up bad data in existing events.json (duplicates, combined entries).
 function mergeThemeEvents(events, year) {
+  // Step 1: Clean up the incoming events
+  // - Dedup by title (case-insensitive) — catches old events.json with duplicates
+  // - Dedup by body substring — catches events where one body is contained in another
+  //   (symptom of combined/split Wikipedia entries)
+  let cleanedEvents = [];
+  const seenTitles = new Set();
+  const seenBodyStarts = new Set();
+  for (const e of events || []) {
+    if (!e) continue;
+    const titleKey = (e.title || "").toLowerCase().trim();
+    // Dedup by title
+    if (titleKey && seenTitles.has(titleKey)) continue;
+    // Dedup by first 50 chars of body (catches split/combined variations)
+    const bodyStart = (e.body || "").slice(0, 50).toLowerCase().trim();
+    if (bodyStart && seenBodyStarts.has(bodyStart)) continue;
+    if (titleKey) seenTitles.add(titleKey);
+    if (bodyStart) seenBodyStarts.add(bodyStart);
+    cleanedEvents.push(e);
+  }
+
   const themeMembers = THEME_MEMBERS_BY_YEAR.get(year) || [];
   const categoryMembers = CATEGORY_MEMBERS_BY_YEAR.get(year) || [];
-  if (themeMembers.length === 0 && categoryMembers.length === 0) return events;
+  if (themeMembers.length === 0 && categoryMembers.length === 0) return cleanedEvents;
 
-  const eventsCopy = [...events];
+  const eventsCopy = [...cleanedEvents];
   const presentSlugs = new Set(
     eventsCopy.flatMap((e) => [e.wiki, ...(e.allLinks || [])].filter(Boolean))
   );
@@ -1260,6 +1299,8 @@ function mergeThemeEvents(events, year) {
     if (eventsCopy.length > 5) eventsCopy.pop();
     // Track that this slug is now present so we don't double-inject
     for (const s of synthetic.allLinks || []) presentSlugs.add(s);
+    // Also track title for future dedup passes
+    if (synthetic.title) seenTitles.add(synthetic.title.toLowerCase().trim());
   };
 
   for (const member of themeMembers) {
