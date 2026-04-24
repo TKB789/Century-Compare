@@ -101,7 +101,7 @@ function humanizeSlug(slug) {
   return decodeURIComponent(slug).replace(/_/g, " ").replace(/\s*\([^)]+\)\s*/g, " ").trim();
 }
 
-function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText, hasBold) {
+function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText, italicText, hasBold) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   text = text.replace(/^(c\.|ca\.|circa)\s+/i, "");
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
@@ -116,16 +116,46 @@ function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText, has
   if (sentenceMatches && sentenceMatches.length > 3) {
     body = sentenceMatches.slice(0, 3).join("").trim();
   }
+
+  // Title extraction strategies in priority order:
+  // 1. Bolded text (Wikipedia's editors marked this as the subject)
+  // 2. Italicized text (also common for event subjects like book/song names)
+  // 3. Text before the first colon, if short (e.g. "Satanic Verses controversy: ...")
+  // 4. Humanized primary Wikipedia slug (e.g. "Apollo_11" → "Apollo 11")
+  // 5. First sentence fallback
   let title = "";
   if (boldText && boldText.length >= 3 && boldText.length < 90) {
     title = boldText.trim();
-  } else if (primaryWiki && primaryWiki.length < 60) {
-    title = humanizeSlug(primaryWiki);
+  } else if (italicText && italicText.length >= 3 && italicText.length < 90) {
+    title = italicText.trim();
   }
+
+  if (!title) {
+    // Check for "SUBJECT: description" pattern in body
+    const colonMatch = body.match(/^([^:.!?]{3,70}):\s+(.+)/);
+    if (colonMatch) {
+      title = colonMatch[1].trim();
+    }
+  }
+
+  if (!title && primaryWiki && primaryWiki.length < 60) {
+    const humanized = humanizeSlug(primaryWiki);
+    // Only use slug if it looks like a real title (not just a year number or generic word)
+    if (humanized.length >= 3 && !/^\d+$/.test(humanized)) {
+      title = humanized;
+    }
+  }
+
   if (!title || title.length < 3) {
     const firstSentence = body.split(/[.!?]/)[0] || body;
     title = firstSentence.length > 80 ? firstSentence.slice(0, 80).trim() + "…" : firstSentence.trim();
   }
+
+  // Remove trailing "is", "was", "on", etc. — fragments from bad truncation
+  title = title.replace(/\s+(is|was|are|were|on|in|of|to|and|the|a|an|by)\s*$/i, "").trim();
+  // Remove trailing single letters like "Supreme Leader of I"
+  title = title.replace(/\s+[a-zA-Z]{1,2}$/, "").trim();
+
   return { title, datePrefix, body, wiki: primaryWiki, allLinks, sectionAnchor, hasBold };
 }
 
@@ -211,6 +241,9 @@ async function fetchCandidates(year) {
       const boldEl = li.querySelector("b");
       const boldText = boldEl ? boldEl.textContent.trim() : null;
       const hasBold = !!boldText;
+      // Also extract italic text — often used for book/song/work titles
+      const italicEl = li.querySelector("i");
+      const italicText = italicEl ? italicEl.textContent.trim() : null;
       const allLinkSlugs = Array.from(li.querySelectorAll("a[href^='/wiki/']"))
         .map((a) => a.getAttribute("href"))
         .filter((h) => h && !h.includes(":"))
@@ -226,8 +259,18 @@ async function fetchCandidates(year) {
           }
         }
       }
+      // Also check italic element for a primary link
+      if (!primaryWiki && italicEl) {
+        const italicLink = italicEl.querySelector("a[href^='/wiki/']");
+        if (italicLink) {
+          const href = italicLink.getAttribute("href");
+          if (href && !href.includes(":")) {
+            primaryWiki = decodeURIComponent(href.replace("/wiki/", "").split("#")[0]);
+          }
+        }
+      }
       if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
-      return parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, hasBold);
+      return parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
     }).filter(Boolean);
 
     const seen = new Set();
@@ -290,12 +333,24 @@ async function main() {
   // Re-fetch years that are: missing, empty array, or have events with empty titles
   // (caused by earlier script bugs).
   const years = [];
+  // "Bad title" heuristics — any of these means the entry should be retried:
+  // - No title, or too short
+  // - Ends with "…" (truncated mid-sentence)
+  // - Ends with " of", " is", " in", etc. (fragment from bad truncation)
+  // - Ends in a single capital letter (e.g. "Supreme Leader of I")
+  const hasBadTitle = (t) => {
+    if (!t || typeof t !== "string" || t.length < 3) return true;
+    if (t.endsWith("…")) return true;
+    if (/\s+(is|was|are|were|of|in|on|to|and|the|a|an|by|for)\s*$/i.test(t)) return true;
+    if (/\s+[A-Z]$/.test(t)) return true;
+    return false;
+  };
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
     const existing_entry = existing[String(y)];
     const isGood = Array.isArray(existing_entry)
-      && existing_entry.length > 0
-      && existing_entry.every((e) => e && typeof e.title === "string" && e.title.length >= 3);
+      && existing_entry.length >= 3  // require at least 3 events (not just 1 from old dedup bug)
+      && existing_entry.every((e) => e && !hasBadTitle(e.title));
     if (!isGood) years.push(y);
   }
 
