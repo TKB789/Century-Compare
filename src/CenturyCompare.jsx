@@ -1009,7 +1009,7 @@ function YearBlock({ year, accent, isAnchor, offset, isFuture, expanded, setExpa
                           </div>
                         )}
                         <h3 className="text-base md:text-lg font-semibold leading-snug" style={{ color: "#f5ead0" }}>
-                          {event.title}
+                          {event.title || event.body?.slice(0, 80) || "Untitled event"}
                         </h3>
                         {isOpen && (
                           <div className="mt-2.5 leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>
