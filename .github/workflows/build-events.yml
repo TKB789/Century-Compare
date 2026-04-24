@@ -1,0 +1,47 @@
+name: Build events.json
+
+# Triggered manually from the Actions tab — no automatic runs.
+# This way you only run it when you want to refresh the data.
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "Start year (negative for BCE, e.g. -500 for 500 BCE)"
+        required: true
+        default: "-500"
+      end_year:
+        description: "End year"
+        required: true
+        default: "2025"
+
+permissions:
+  contents: write  # Needed so the job can commit events.json back to the repo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330  # 5.5 hours — under GitHub's 6-hour limit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install jsdom
+
+      - name: Run build script
+        run: node scripts/build-events.mjs --start=${{ inputs.start_year }} --end=${{ inputs.end_year }}
+
+      - name: Commit events.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/events.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update events.json (${{ inputs.start_year }} to ${{ inputs.end_year }})"
+            git push
+          fi
