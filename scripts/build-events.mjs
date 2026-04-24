@@ -310,7 +310,22 @@ async function computeYear(year) {
   });
 
   scored.sort((a, b) => b._score - a._score);
-  return scored.slice(0, 5).map(({ _score, allLinks, hasBold, ...rest }) => rest);
+
+  // Dedup by title (case-insensitive) — after scoring, keep the highest-scored
+  // entry per title. This catches cases where two different events end up with
+  // the same humanized-slug title (e.g. two "Egypt" events from different links
+  // in different entries that both resolved to Egypt's Wikipedia page).
+  const seenTitles = new Set();
+  const deduped = [];
+  for (const s of scored) {
+    const titleKey = (s.title || "").toLowerCase().trim();
+    if (!titleKey || seenTitles.has(titleKey)) continue;
+    seenTitles.add(titleKey);
+    deduped.push(s);
+    if (deduped.length >= 5) break;
+  }
+
+  return deduped.map(({ _score, allLinks, hasBold, ...rest }) => rest);
 }
 
 // -------------------- MAIN --------------------
@@ -345,12 +360,23 @@ async function main() {
     if (/\s+[A-Z]$/.test(t)) return true;
     return false;
   };
+  // Check for duplicate titles within a year's events (case-insensitive)
+  const hasDuplicateTitles = (events) => {
+    const seen = new Set();
+    for (const e of events) {
+      const key = (e?.title || "").toLowerCase().trim();
+      if (key && seen.has(key)) return true;
+      seen.add(key);
+    }
+    return false;
+  };
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
     const existing_entry = existing[String(y)];
     const isGood = Array.isArray(existing_entry)
       && existing_entry.length >= 3  // require at least 3 events (not just 1 from old dedup bug)
-      && existing_entry.every((e) => e && !hasBadTitle(e.title));
+      && existing_entry.every((e) => e && !hasBadTitle(e.title))
+      && !hasDuplicateTitles(existing_entry);
     if (!isGood) years.push(y);
   }
 
