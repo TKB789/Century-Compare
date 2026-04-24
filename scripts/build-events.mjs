@@ -287,10 +287,16 @@ async function main() {
   }
 
   // Build year list. Skip 0 (no year zero).
+  // Re-fetch years that are: missing, empty array, or have events with empty titles
+  // (caused by earlier script bugs).
   const years = [];
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
-    if (!existing[String(y)]) years.push(y);
+    const existing_entry = existing[String(y)];
+    const isGood = Array.isArray(existing_entry)
+      && existing_entry.length > 0
+      && existing_entry.every((e) => e && typeof e.title === "string" && e.title.length >= 3);
+    if (!isGood) years.push(y);
   }
 
   console.log(`${years.length} years to compute`);
