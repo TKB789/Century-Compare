@@ -1851,7 +1851,7 @@ function CenturySpanningSection() {
 // Year browser — grouped by era, scrollable, lets user pick any available year
 function YearBrowser({ onSelect, currentAnchor }) {
   const groups = [
-    { label: "21st Century", years: Array.from({length: 25}, (_, i) => 2025 - i) },
+    { label: "21st Century", years: Array.from({length: 27}, (_, i) => 2026 - i) },
     { label: "20th Century", years: Array.from({length: 100}, (_, i) => 1999 - i) },
     { label: "19th Century", years: Array.from({length: 100}, (_, i) => 1899 - i) },
     { label: "18th Century", years: Array.from({length: 100}, (_, i) => 1799 - i) },
@@ -1868,10 +1868,14 @@ function YearBrowser({ onSelect, currentAnchor }) {
     { label: "7th Century", years: Array.from({length: 100}, (_, i) => 699 - i) },
     { label: "6th Century", years: Array.from({length: 100}, (_, i) => 599 - i) },
     { label: "5th Century", years: Array.from({length: 100}, (_, i) => 499 - i) },
-    { label: "4th Century BCE", years: Array.from({length: 100}, (_, i) => -(300 + i)) },
-    { label: "3rd Century BCE", years: Array.from({length: 100}, (_, i) => -(200 + i)) },
-    { label: "2nd Century BCE", years: Array.from({length: 100}, (_, i) => -(100 + i)) },
+    { label: "4th Century", years: Array.from({length: 100}, (_, i) => 399 - i) },
+    { label: "3rd Century", years: Array.from({length: 100}, (_, i) => 299 - i) },
+    { label: "2nd Century", years: Array.from({length: 100}, (_, i) => 199 - i) },
+    { label: "1st Century", years: Array.from({length: 99}, (_, i) => 99 - i).filter(y => y > 0) },
     { label: "1st Century BCE", years: Array.from({length: 99}, (_, i) => -(1 + i)) },
+    { label: "2nd Century BCE", years: Array.from({length: 100}, (_, i) => -(100 + i)) },
+    { label: "3rd Century BCE", years: Array.from({length: 100}, (_, i) => -(200 + i)) },
+    { label: "4th Century BCE", years: Array.from({length: 100}, (_, i) => -(300 + i)) },
     { label: "Ancient (500–3000 BCE)", years: [-500,-600,-700,-800,-900,-1000,-1100,-1200,-1274,-1300,-1351,-1400,-1500,-1550,-1600,-1700,-1754,-1800,-1900,-2000,-2100,-2200,-2350,-2400,-2500,-2560,-2600,-2700,-2800,-2900,-3000] },
   ];
   const [openGroup, setOpenGroup] = useState(null);
