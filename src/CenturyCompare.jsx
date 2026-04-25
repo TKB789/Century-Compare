@@ -920,6 +920,17 @@ export default function CenturyCompare() {
   const [activeCat, setActiveCat] = useState("all"); // "all" | category.id
   // Previews: year -> { loading, preview: string|null }
   const [previews, setPreviews] = useState({});
+  // Keyword search
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Back-to-top visibility
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
@@ -1227,6 +1238,9 @@ export default function CenturyCompare() {
             );
           })}
 
+          {/* Iron Age — static precursor, always visible before deep time */}
+          <IronAgePrecursor />
+
           <EdgeOfHistoryGateway open={showDeepTime} onToggle={() => setShowDeepTime((s) => !s)} />
 
           {showDeepTime && (
@@ -1245,6 +1259,29 @@ export default function CenturyCompare() {
       <footer className="px-5 md:px-12 py-6 text-xs" style={{ borderTop: "1px solid #3d3528", color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
         Events ranked by cumulative Wikipedia pageviews (last 60 days). Cached for 30 days per year.
       </footer>
+
+      {showBackToTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Back to top"
+          className="fixed bottom-6 right-6 flex items-center gap-1.5 px-3 py-2 transition-all hover:brightness-125 active:scale-95"
+          style={{
+            background: "linear-gradient(180deg, #d4a856 0%, #b88a3d 100%)",
+            color: "#1a1612",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            borderRadius: "2px",
+            boxShadow: "0 2px 0 #8a6428, 0 4px 16px #00000080",
+            zIndex: 50,
+          }}
+        >
+          <ArrowUp size={12} />
+          Top
+        </button>
+      )}
     </div>
   );
 }
@@ -1632,13 +1669,77 @@ function ThemesSeeAlso({ event, accent, onJumpTo }) {
   );
 }
 
+
+// Static Iron Age precursor — always shown before the deep time gateway.
+// Mirrors the DeepTimeBlock style but is never collapsed.
+const IRON_AGE_ERA = {
+  yearsAgo: 3000,
+  label: "c. 1000 BCE",
+  era: "Iron Age",
+  key: [
+    { title: "Iron Working Spreads", detail: "Technology of smelting iron spreads across Eurasia and Africa, enabling stronger tools and weapons than the preceding Bronze Age.", wiki: "Iron_Age" },
+    { title: "Phoenician Alphabet", detail: "A 22-letter script developed in the Levant becomes the ancestor of Greek, Latin, Arabic, and Hebrew writing.", wiki: "Phoenician_alphabet" },
+    { title: "Composition of the Rigveda", detail: "Sanskrit hymns transmitted orally for centuries are among the oldest surviving religious texts.", wiki: "Rigveda" },
+    { title: "Bronze Age Collapse Aftermath", detail: "Late Bronze Age civilizations of the eastern Mediterranean collapsed ~1177 BCE; survivors are rebuilding.", wiki: "Late_Bronze_Age_collapse" },
+    { title: "Olmec Civilization Rises", detail: "First major Mesoamerican culture flourishes in what is now Mexico.", wiki: "Olmecs" },
+  ],
+};
+
+function IronAgePrecursor() {
+  const accent = "#c8a060";
+  return (
+    <section>
+      <div className="mb-4 pb-3" style={{ borderBottom: `2px solid ${accent}` }}>
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <h2 className="text-3xl md:text-5xl font-bold leading-none tracking-tight" style={{ color: accent, fontStyle: "italic" }}>
+            {IRON_AGE_ERA.era}
+          </h2>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
+              {formatYearsAgo(IRON_AGE_ERA.yearsAgo)}
+            </div>
+            <div className="text-xs mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+              {IRON_AGE_ERA.label}
+            </div>
+          </div>
+        </div>
+        <p className="mt-2 text-xs italic" style={{ color: "#7a6a4a", fontFamily: "'JetBrains Mono', monospace" }}>
+          Precursor to deep time · navigable years continue above
+        </p>
+      </div>
+      <ol className="space-y-0">
+        {IRON_AGE_ERA.key.map((event, i) => (
+          <li key={i} style={{ borderBottom: "1px solid #3d3528" }} className="py-4">
+            <div className="flex items-start gap-3">
+              <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base md:text-lg font-semibold mb-1" style={{ color: "#f5ead0" }}>{event.title}</h3>
+                <p className="leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>{event.detail}</p>
+                <div className="mt-2">
+                  <a href={`https://en.wikipedia.org/wiki/${event.wiki}`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
+                    Read more <ExternalLink size={12} />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function EdgeOfHistoryGateway({ open, onToggle }) {
   return (
     <div className="py-6">
       <div className="text-center mb-4">
         <p className="text-sm italic" style={{ color: "#9a8b6f" }}>Here written records grow thin.</p>
         <p className="text-xs mt-1" style={{ color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
-          Beyond lies archaeology, then geology, then the cosmos itself.
+          Beyond c. 3000 BCE lies archaeology, then geology, then the cosmos itself.
         </p>
       </div>
       <button onClick={onToggle}
