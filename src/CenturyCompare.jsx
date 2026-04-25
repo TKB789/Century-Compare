@@ -6,15 +6,6 @@ import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as Infinit
 // ===================================================================
 const ev = (title, detail, wiki) => ({ title, detail, wiki });
 const DEEP_TIME = [
-  { yearsAgo: 3000, label: "c. 1000 BCE", era: "Iron Age",
-    key: [
-      ev("Iron Working Spreads", "Technology of smelting iron spreads across Eurasia and Africa, enabling stronger tools and weapons than the preceding Bronze Age.", "Iron_Age"),
-      ev("Phoenician Alphabet", "A 22-letter script developed in the Levant becomes the ancestor of Greek, Latin, Arabic, and Hebrew writing.", "Phoenician_alphabet"),
-      ev("Composition of the Rigveda", "Sanskrit hymns transmitted orally for centuries are among the oldest surviving religious texts.", "Rigveda"),
-      ev("Bronze Age Collapse Aftermath", "Late Bronze Age civilizations of the eastern Mediterranean collapsed ~1177 BCE; survivors are rebuilding.", "Late_Bronze_Age_collapse"),
-      ev("Olmec Civilization Rises", "First major Mesoamerican culture flourishes in what is now Mexico.", "Olmecs"),
-    ],
-  },
   { yearsAgo: 5000, label: "c. 3000 BCE", era: "Dawn of Writing",
     key: [
       ev("Cuneiform Writing Emerges", "Sumerians in Mesopotamia develop wedge-shaped writing on clay tablets — the first known writing system.", "Cuneiform"),
@@ -127,6 +118,7 @@ const SIGNIFICANT_YEARS = [
   2024, 2020, 2001, 1989, 1969, 1945, 1918, 1905, 1876, 1859,
   1776, 1687, 1492, 1455, 1347, 1215, 1066, 1054, 960, 800,
   622, 476, 313, 100, -44, -221, -323, -500, -776,
+  -814, -1000, -1200, -1274, -1351, -1550, -1754, -2560,
 ];
 
 // ===================================================================
@@ -928,18 +920,6 @@ export default function CenturyCompare() {
   const [activeCat, setActiveCat] = useState("all"); // "all" | category.id
   // Previews: year -> { loading, preview: string|null }
   const [previews, setPreviews] = useState({});
-  // Keyword search results: null = no search active, [] = no results, [...] = hits
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  // Back-to-top visibility
-  const [showBackToTop, setShowBackToTop] = useState(false);
-
-  // Show back-to-top button after scrolling down 400px
-  useEffect(() => {
-    const onScroll = () => setShowBackToTop(window.scrollY > 400);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
@@ -1005,53 +985,15 @@ export default function CenturyCompare() {
     requestAnimationFrame(tick);
   };
 
-  // Search the preloaded events.json for keyword matches across title + body.
-  // Returns every matching event individually — multiple per year if applicable.
-  const runKeywordSearch = async (query) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return;
-    const preloaded = await loadPreloadedEvents();
-    const hits = [];
-    for (const [yearStr, events] of Object.entries(preloaded)) {
-      for (const e of events || []) {
-        const inTitle = (e.title || "").toLowerCase().includes(q);
-        const inBody = (e.body || "").toLowerCase().includes(q);
-        if (inTitle || inBody) {
-          hits.push({ year: parseInt(yearStr, 10), event: e, inTitle });
-        }
-      }
-    }
-    // Sort: title matches first, then newest year first
-    hits.sort((a, b) => {
-      if (a.inTitle !== b.inTitle) return a.inTitle ? -1 : 1;
-      return b.year - a.year;
-    });
-    setSearchResults(hits.slice(0, 50));
-    setSearchQuery(query.trim());
-  };
-
   const submit = (e) => {
     e?.preventDefault();
-    const trimmed = input.trim();
-    const n = parseYearInput(trimmed);
+    const n = parseYearInput(input);
     if (n !== null && n >= -3000 && n <= 2100 && n !== 0) {
-      // Valid year — clear any search and navigate
-      setSearchResults(null);
-      setSearchQuery("");
       setAnchor(n);
       setExpanded(null);
       setShowDeepTime(false);
       setTimeout(() => scrollToYear(n), 50);
-    } else if (trimmed.length >= 2) {
-      // Not a year — treat as keyword search
-      runKeywordSearch(trimmed);
     }
-  };
-
-  const clearSearch = () => {
-    setSearchResults(null);
-    setSearchQuery("");
-    setInput(String(anchor));
   };
 
   const jumpTo = (y) => {
@@ -1075,7 +1017,7 @@ export default function CenturyCompare() {
           A Century <em className="italic font-normal" style={{ color: "#d4a856" }}>Apart</em>
         </h1>
         <p className="mt-2 text-xs md:text-sm" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-          Enter a year or an event. Events ranked by Wikipedia pageview popularity.
+          Enter a year. Events ranked by Wikipedia pageview popularity.
         </p>
       </header>
 
@@ -1088,7 +1030,7 @@ export default function CenturyCompare() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="e.g. 1969, 44 BCE, or 'moon landing'"
+              placeholder="e.g. 1969 or 44 BCE"
               className="flex-1 outline-none text-lg font-semibold bg-transparent py-2.5 min-w-0"
               style={{ fontFamily: "'Fraunces', serif", color: "#f5ead0" }}
             />
@@ -1106,58 +1048,6 @@ export default function CenturyCompare() {
           </button>
         </form>
       </div>
-
-      {/* Keyword Search Results */}
-      {searchResults !== null && (
-        <div className="px-5 md:px-12 py-4" style={{ borderBottom: "1px solid #3d3528", background: "#1e1810" }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Search size={13} style={{ color: "#d4a856" }} />
-              <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-                {searchResults.length > 0
-                  ? `${searchResults.length} event${searchResults.length !== 1 ? "s" : ""} matching "${searchQuery}"`
-                  : `No events matching "${searchQuery}"`}
-              </span>
-            </div>
-            <button
-              onClick={clearSearch}
-              className="text-[10px] uppercase tracking-widest px-2 py-1 transition-all hover:brightness-125"
-              style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f", border: "1px solid #3d3528", borderRadius: "2px" }}
-            >
-              Clear
-            </button>
-          </div>
-          {searchResults.length === 0 ? (
-            <p className="text-xs" style={{ color: "#6c5a3a", fontFamily: "'JetBrains Mono', monospace" }}>
-              Try a different keyword — search covers event titles and descriptions in events.json.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {searchResults.map(({ year, event }) => (
-                <button
-                  key={year}
-                  onClick={() => { clearSearch(); jumpTo(year); }}
-                  className="text-left flex items-start gap-3 py-2 px-2.5 transition-all hover:brightness-125"
-                  style={{ background: "transparent", border: "1px solid #3d3528", borderRadius: "2px" }}
-                >
-                  <span className="text-sm font-bold shrink-0 w-20 pt-0.5" style={{ color: "#d4a856", fontFamily: "'Fraunces', serif" }}>
-                    {formatYear(year)}
-                  </span>
-                  <span className="text-xs leading-snug flex-1 min-w-0" style={{ color: "#d4c7a8", fontFamily: "'JetBrains Mono', monospace" }}>
-                    <span style={{ color: "#f5ead0", fontWeight: 600 }}>{event.title}</span>
-                    {event.body && (
-                      <span className="block mt-0.5" style={{ color: "#9a8b6f" }}>
-                        {event.body.length > 100 ? event.body.slice(0, 100).replace(/\s+\S*$/, "") + "…" : event.body}
-                      </span>
-                    )}
-                  </span>
-                  <CornerDownRight size={13} className="shrink-0 mt-1" style={{ color: "#5c4a30" }} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Significant Events — paginated, one per century */}
       <div className="px-5 md:px-12 py-5" style={{ borderBottom: "1px solid #3d3528" }}>
@@ -1355,30 +1245,6 @@ export default function CenturyCompare() {
       <footer className="px-5 md:px-12 py-6 text-xs" style={{ borderTop: "1px solid #3d3528", color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
         Events ranked by cumulative Wikipedia pageviews (last 60 days). Cached for 30 days per year.
       </footer>
-
-      {/* Back to top */}
-      {showBackToTop && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="Back to top"
-          className="fixed bottom-6 right-6 flex items-center gap-1.5 px-3 py-2 transition-all hover:brightness-125 active:scale-95"
-          style={{
-            background: "linear-gradient(180deg, #d4a856 0%, #b88a3d 100%)",
-            color: "#1a1612",
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "10px",
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            borderRadius: "2px",
-            boxShadow: "0 2px 0 #8a6428, 0 4px 16px #00000080",
-            zIndex: 50,
-          }}
-        >
-          <ArrowUp size={12} />
-          Top
-        </button>
-      )}
     </div>
   );
 }
