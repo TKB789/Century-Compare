@@ -32,9 +32,15 @@ jobs:
         run: npm install jsdom
 
       - name: Run build script
+        id: build_step
         run: node scripts/build-events.mjs --start=${{ inputs.start_year }} --end=${{ inputs.end_year }}
 
+      # IMPORTANT: `if: always()` means this step runs even if the build script
+      # was cancelled or failed. The script saves progress to events.json every
+      # 30 seconds, so partial progress always gets committed back to the repo.
+      # You can then re-run the workflow and it will resume from where it left off.
       - name: Commit events.json
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -42,6 +48,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update events.json (${{ inputs.start_year }} to ${{ inputs.end_year }})"
+            git commit -m "Update events.json (${{ inputs.start_year }} to ${{ inputs.end_year }}) [partial if cancelled]"
             git push
           fi
