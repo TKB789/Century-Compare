@@ -618,17 +618,81 @@ function humanizeSlug(slug) {
   return s;
 }
 
+// Sentences that continue a prior event rather than starting a new one.
+// Wikipedia bullet points often have 2-sentence descriptions of a single event.
+const CONTINUATION_RE = /^(He |She |They |His |Her |Their |Its |It |This |That |These |Those |On (her|his|their|its|the) |Unable |Despite |However|Although|After (his|her|their|the|a )|Before (his|her|their|the)|During (his|her|their|the)|Following (his|her|their|the|this)|As a result|Subsequently|Later,|Eventually|In addition|Furthermore|The (?:same|following|next|previous)|Both |All |Some |Several |which |who |where |whose |having |According to|In response|As part of)/;
+
+// Extract a leading "Month Day" date from text (no dash required).
+// e.g. "January 1 Bulgaria..." → "January 1"
+function extractNoDashDate(text) {
+  const m = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?)\s+[A-Z]/);
+  return m ? m[1].trim() : null;
+}
+
+// Build a clean title from a body sentence (strips leading date prefix).
+function titleFromBody(body) {
+  const clean = body
+    .replace(/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?\s+/, "")
+    .replace(/^\d{4}\s*[-–]?\s*/, "")
+    .trim();
+  const words = clean.split(/\s+/);
+  let snippet = words.slice(0, 12).join(" ");
+  const breakIdx = snippet.search(/[,;(]/);
+  if (breakIdx > 0 && snippet.slice(0, breakIdx).split(/\s+/).length >= 4) {
+    snippet = snippet.slice(0, breakIdx);
+  }
+  return snippet.trim().replace(/[.,;:(]+$/, "");
+}
+
+// Split a Wikipedia no-dash daily-list body ("Month Day Event1. Event2.")
+// into separate event objects. Returns an array of { body, datePrefix } or null
+// if the text is a single event.
+function splitNoDashBody(text, baseDatePrefix) {
+  // Only attempt split on the no-dash format
+  if (!/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+[A-Z]/.test(text)) return null;
+
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/);
+  if (sentences.length < 2) return null;
+
+  const groups = [];
+  let current = [sentences[0]];
+  let currentDate = baseDatePrefix || extractNoDashDate(sentences[0]);
+
+  for (const s of sentences.slice(1)) {
+    if (CONTINUATION_RE.test(s)) {
+      current.push(s);
+    } else {
+      groups.push({ sentences: current, date: currentDate });
+      current = [s];
+      const newDate = extractNoDashDate(s);
+      if (newDate) currentDate = newDate;
+    }
+  }
+  if (current.length) groups.push({ sentences: current, date: currentDate });
+  if (groups.length < 2) return null;
+
+  return groups.map((g) => ({ body: g.sentences.join(" ").trim(), datePrefix: g.date }));
+}
+
 function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   // Strip leading "c." or "circa" — these are approximation markers, not content
   text = text.replace(/^(c\.|ca\.|circa)\s+/i, "");
+
+  // Try the standard dash-separated date format first: "Month Day – Event"
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
   let datePrefix = null;
   let body = text;
   if (dateMatch) {
     datePrefix = dateMatch[1].trim();
     body = dateMatch[2].trim();
+  } else {
+    // No-dash format: "Month Day EventText" — extract the date prefix
+    const noDashDate = extractNoDashDate(text);
+    if (noDashDate) datePrefix = noDashDate;
+    // body stays as full text (splitting handled in fetchWikipediaCandidates)
   }
+
   // Also strip leading "c." on body after date stripping
   body = body.replace(/^(c\.|ca\.|circa)\s+/i, "");
   // Cap body at 3 sentences for readability
@@ -723,10 +787,10 @@ async function fetchWikipediaCandidates(year) {
         }
       }
 
-      const parsed = collected.map(({ li, section }) => {
+      const parsed = collected.flatMap(({ li, section }) => {
         li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
         const text = li.textContent.trim();
-        if (!text || text.length < 15) return null;
+        if (!text || text.length < 15) return [];
 
         // Extract bolded text — Wikipedia uses <b> to highlight the main subject
         // of an event entry. This gives us a clean, short title.
@@ -754,8 +818,26 @@ async function fetchWikipediaCandidates(year) {
         }
         if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
 
-        const parsed = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
-        return { ...parsed, hasBold };
+        const base = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
+
+        // If the raw text is the Wikipedia no-dash daily-list format
+        // ("Month Day Event1. Event2."), split it into separate events so each
+        // bullet point is ranked and displayed independently.
+        const splits = splitNoDashBody(text, base.datePrefix);
+        if (splits && splits.length >= 2) {
+          return splits.map((s, i) => ({
+            ...base,
+            body: s.body,
+            datePrefix: s.datePrefix,
+            // Only the first split inherits the bold/primary wiki; the rest get
+            // a title derived from their own body text.
+            title: i === 0 ? base.title : titleFromBody(s.body),
+            wiki: i === 0 ? primaryWiki : nonGenericLinks[i] || primaryWiki,
+            hasBold: i === 0 ? hasBold : false,
+          }));
+        }
+
+        return [{ ...base, hasBold }];
       }).filter(Boolean);
 
       const seen = new Set();
