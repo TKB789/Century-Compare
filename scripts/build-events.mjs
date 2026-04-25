@@ -8,9 +8,14 @@
 //   node scripts/build-events.mjs                 # default range 500 BCE - 2025
 //   node scripts/build-events.mjs --start=1900    # override start year
 //   node scripts/build-events.mjs --end=2024      # override end year
+//   node scripts/build-events.mjs --force         # re-fetch ALL years (ignores isGood)
+//   node scripts/build-events.mjs --force --start=1900 --end=2024  # force range
 //
 // Resumable: re-running picks up where it left off by reading existing
 // events.json first and skipping years already computed.
+// Use --force after updating scoring logic to re-rank all years.
+// Title overrides (scripts/title-overrides.json) are applied after each
+// fetch, so curated titles for stable events are preserved automatically.
 // ============================================================================
 
 import fs from "fs/promises";
@@ -31,9 +36,15 @@ const OUTPUT_PATH = args.out ?? "public/events.json";
 const PAGEVIEW_DAYS = 60;
 const REQUEST_DELAY_MS = 150; // ~7 req/sec, well under Wikipedia's limits
 const MAX_RETRIES = 3;
+// --force: re-fetch every year regardless of whether it passes isGood.
+// Use this when you've updated scoring logic and want all years re-ranked.
+// Title overrides are still applied after re-fetching, so curated titles
+// for stable historical events are preserved automatically.
+const FORCE_REBUILD = args.force === true || args.force === "true";
 
 console.log(`Building events.json for years ${START_YEAR} → ${END_YEAR}`);
 console.log(`Output: ${OUTPUT_PATH}`);
+if (FORCE_REBUILD) console.log("  --force: re-fetching all years regardless of isGood");
 
 // -------------------- HELPERS --------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -76,24 +87,131 @@ function wikiSlugCandidates(year) {
   return [String(year)];
 }
 
+// ===================================================================
+// GENERIC SLUGS — broad reference articles, not specific events.
+// Bullets linking primarily to these are penalized in scoring because
+// pageviews reflect general topic interest, not the specific event.
+// ===================================================================
 const GENERIC_SLUGS = new Set([
+  // Calendar
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
   "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday",
-  "Common_Era","Anno_Domini","BC","BCE","AD","CE",
-  "United_States","United_Kingdom","England","France","Germany",
-  "China","Japan","India","Russia","Europe","Asia","Africa",
-  "North_America","South_America",
+  "Common_Era","Anno_Domini","BC","BCE","AD","CE","Gregorian_calendar",
+  "Julian_calendar","Leap_year","New_Year",
+
+  // Countries — present day
+  "United_States","United_Kingdom","England","Scotland","Wales",
+  "Northern_Ireland","France","Germany","Italy","Spain","Portugal",
+  "Russia","Soviet_Union","China","Japan","India","Pakistan","Bangladesh",
+  "Australia","Canada","Mexico","Brazil","Argentina","Chile","Colombia",
+  "South_Africa","Nigeria","Egypt","Ethiopia","Kenya","Ghana","Algeria",
+  "Iran","Iraq","Saudi_Arabia","Turkey","Israel","Palestine","Syria",
+  "Lebanon","Jordan","Afghanistan","South_Korea","North_Korea","Vietnam",
+  "Thailand","Indonesia","Philippines","Malaysia","Singapore","Myanmar",
+  "Poland","Ukraine","Hungary","Romania","Bulgaria","Greece","Serbia",
+  "Croatia","Czech_Republic","Slovakia","Austria","Switzerland","Belgium",
+  "Netherlands","Sweden","Norway","Denmark","Finland","Ireland","Iceland",
+  "New_Zealand","Cuba","Venezuela","Peru","Bolivia","Ecuador","Paraguay",
+  "Uruguay","Panama","Costa_Rica","Guatemala","Honduras","El_Salvador",
+  "Nicaragua","Jamaica","Haiti","Dominican_Republic","Puerto_Rico",
+  "Libya","Morocco","Tunisia","Sudan","Somalia","Mozambique","Angola",
+  "Zambia","Zimbabwe","Cameroon","Senegal","Mali","Niger",
+
+  // Historical empires / states
+  "Roman_Empire","Byzantine_Empire","Ottoman_Empire","British_Empire",
+  "Mongol_Empire","Holy_Roman_Empire","Austro-Hungarian_Empire",
+  "Mughal_Empire","Persian_Empire","Achaemenid_Empire","Sassanid_Empire",
+  "Qing_dynasty","Ming_dynasty","Tang_dynasty","Song_dynasty","Han_dynasty",
+  "Zhou_dynasty","Umayyad_Caliphate","Abbasid_Caliphate","Safavid_dynasty",
+  "Carolingian_Empire","Habsburg_monarchy","French_Empire",
+  "Third_Reich","Nazi_Germany","Weimar_Republic","German_Empire",
+
+  // Continents / regions
+  "Europe","Asia","Africa","North_America","South_America",
+  "Middle_East","Central_Asia","Southeast_Asia","East_Asia","South_Asia",
+  "Sub-Saharan_Africa","Latin_America","Caribbean","Balkans","Scandinavia",
+  "Iberian_Peninsula","British_Isles","Pacific","Atlantic_Ocean",
+  "Mediterranean","Indian_Ocean","Arctic","Antarctic",
+
+  // Broad conflicts — specific battles/campaigns are fine
+  "World_War_I","World_War_II","Cold_War","Korean_War","Vietnam_War",
+  "American_Civil_War","French_Revolution","Russian_Revolution",
+  "Napoleonic_Wars","Crusades","Thirty_Years%27_War","Seven_Years%27_War",
+  "American_Revolutionary_War","Gulf_War","Iraq_War","Syrian_civil_war",
+  "Bosnian_War","Spanish_Civil_War","Chinese_Civil_War",
+  "Iran%E2%80%93Iraq_War","Peloponnesian_War","Punic_Wars",
+
+  // Religions
+  "Christianity","Islam","Judaism","Buddhism","Hinduism","Sikhism",
+  "Catholic_Church","Eastern_Orthodox_Church","Protestantism","Sunni_Islam",
+  "Shia_Islam","Anglican_Communion","Lutheran_Church","Calvinism",
+
+  // Broad political / governmental
+  "President_of_the_United_States","Prime_Minister_of_the_United_Kingdom",
+  "Pope","United_Nations","European_Union","NATO","Warsaw_Pact",
+  "League_of_Nations","United_States_Congress","United_States_Senate",
+  "United_States_Supreme_Court","Federal_government_of_the_United_States",
+  "Democracy","Communism","Fascism","Socialism","Capitalism",
+  "Republican_Party_(United_States)","Democratic_Party_(United_States)",
+
+  // Broad science / tech / culture
+  "Science","Technology","Medicine","Mathematics","Physics","Chemistry",
+  "Biology","Astronomy","Economics","Philosophy","Literature",
+  "Art","Music","Film","Television","Theatre","Architecture","Sport",
+  "Olympic_Games","FIFA_World_Cup","English_language",
 ]);
 
 function isGenericSlug(slug) {
   if (!slug) return true;
   if (GENERIC_SLUGS.has(slug)) return true;
+  const decoded = decodeURIComponent(slug);
+  if (GENERIC_SLUGS.has(decoded)) return true;
   if (/^\d+$/.test(slug)) return true;
   if (/^\d{1,2}_[A-Z]/.test(slug)) return true;
   if (/^(January|February|March|April|May|June|July|August|September|October|November|December)_\d/.test(slug)) return true;
   if (/^(AD_)?\d+$/.test(slug) || /^\d+_(BC|BCE|AD|CE)$/.test(slug)) return true;
+  if (/^\d+(st|nd|rd|th)_century/i.test(slug)) return true;
+  if (/^\d{3,4}s$/.test(slug)) return true;
   return false;
+}
+
+// ===================================================================
+// DEDICATED EVENT SCORING
+//
+// eventSlugScore() returns a multiplier for the primary slug.
+// Applied in computeYear() before ranking candidates.
+// ===================================================================
+const DEDICATED_EVENT_RE = /^(Battle_of|Siege_of|Assassination_of|Murder_of|Execution_of|Death_of|Birth_of|Sinking_of|Bombing_of|Invasion_of|Capture_of|Fall_of|Burning_of|Destruction_of|Founding_of|Treaty_of|Convention_of|Council_of|Synod_of|Massacre_of|Raid_on|Attack_on|Revolt_of|Uprising_of|Revolution_of|Coronation_of|Abdication_of|Impeachment_of|Eruption_of|Earthquake_in|Fire_of|Declaration_of|Signing_of|Publication_of|Discovery_of|Launch_of|Opening_of|Completion_of|Trial_of|Acquittal_of|Conviction_of)/i;
+
+const YEAR_IN_SLUG_RE = /_(1[0-9]{3}|20[0-2][0-9]|[1-9][0-9]{2})(_|$)/;
+const ANCIENT_YEAR_IN_SLUG_RE = /_(BC|BCE|AD|CE)$/i;
+
+function eventSlugScore(slug, bulletText) {
+  if (!slug || isGenericSlug(slug)) return 0.3; // penalize but keep in pool
+
+  let multiplier = 1.0;
+
+  // Strong boost: slug names a specific event type
+  if (DEDICATED_EVENT_RE.test(slug)) multiplier *= 3.0;
+
+  // Good boost: slug contains a year — specific dated event
+  if (YEAR_IN_SLUG_RE.test(slug) || ANCIENT_YEAR_IN_SLUG_RE.test(slug)) multiplier *= 2.0;
+
+  // Title match boost: slug words appear in the bullet text
+  // Confirms the article is actually about what the bullet describes
+  if (bulletText) {
+    const slugWords = decodeURIComponent(slug)
+      .replace(/_/g, " ").replace(/\([^)]+\)/g, "").toLowerCase()
+      .split(/\s+/).filter((w) => w.length > 3);
+    const bulletLower = bulletText.toLowerCase();
+    const matchCount = slugWords.filter((w) => bulletLower.includes(w)).length;
+    const matchRatio = slugWords.length > 0 ? matchCount / slugWords.length : 0;
+    if (matchRatio >= 0.6) multiplier *= 2.5;
+    else if (matchRatio >= 0.3) multiplier *= 1.5;
+  }
+
+  return multiplier;
 }
 
 function humanizeSlug(slug) {
@@ -101,78 +219,15 @@ function humanizeSlug(slug) {
   return decodeURIComponent(slug).replace(/_/g, " ").replace(/\s*\([^)]+\)\s*/g, " ").trim();
 }
 
-// Sentences that continue a prior event rather than starting a new one.
-// Wikipedia bullet points often have 2-sentence descriptions of a single event.
-const CONTINUATION_RE = /^(He |She |They |His |Her |Their |Its |It |This |That |These |Those |On (her|his|their|its|the) |Unable |Despite |However|Although|After (his|her|their|the|a )|Before (his|her|their|the)|During (his|her|their|the)|Following (his|her|their|the|this)|As a result|Subsequently|Later,|Eventually|In addition|Furthermore|The (?:same|following|next|previous)|Both |All |Some |Several |which |who |where |whose |having |According to|In response|As part of)/;
-
-// Extract a leading "Month Day" date from text (no dash required).
-// e.g. "January 1 Bulgaria..." → "January 1"
-function extractNoDashDate(text) {
-  const m = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?)\s+[A-Z]/);
-  return m ? m[1].trim() : null;
-}
-
-// Build a clean title from a body sentence (strips leading date prefix).
-function titleFromBody(body) {
-  const clean = body
-    .replace(/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?\s+/, "")
-    .replace(/^\d{4}\s*[-–]?\s*/, "")
-    .trim();
-  const words = clean.split(/\s+/);
-  let snippet = words.slice(0, 12).join(" ");
-  const breakIdx = snippet.search(/[,;(]/);
-  if (breakIdx > 0 && snippet.slice(0, breakIdx).split(/\s+/).length >= 4) {
-    snippet = snippet.slice(0, breakIdx);
-  }
-  return snippet.trim().replace(/[.,;:(]+$/, "");
-}
-
-// Split a Wikipedia no-dash daily-list body ("Month Day Event1. Event2.")
-// into separate event objects. Returns an array of { body, datePrefix } or null
-// if the text is a single event.
-function splitNoDashBody(text, baseDatePrefix) {
-  // Only attempt split on the no-dash format
-  if (!/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+[A-Z]/.test(text)) return null;
-
-  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/);
-  if (sentences.length < 2) return null;
-
-  const groups = [];
-  let current = [sentences[0]];
-  let currentDate = baseDatePrefix || extractNoDashDate(sentences[0]);
-
-  for (const s of sentences.slice(1)) {
-    if (CONTINUATION_RE.test(s)) {
-      current.push(s);
-    } else {
-      groups.push({ sentences: current, date: currentDate });
-      current = [s];
-      const newDate = extractNoDashDate(s);
-      if (newDate) currentDate = newDate;
-    }
-  }
-  if (current.length) groups.push({ sentences: current, date: currentDate });
-  if (groups.length < 2) return null;
-
-  return groups.map((g) => ({ body: g.sentences.join(" ").trim(), datePrefix: g.date }));
-}
-
 function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText, italicText, hasBold) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   text = text.replace(/^(c\.|ca\.|circa)\s+/i, "");
-
-  // Try the standard dash-separated date format first: "Month Day – Event"
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
   let datePrefix = null;
   let body = text;
   if (dateMatch) {
     datePrefix = dateMatch[1].trim();
     body = dateMatch[2].trim();
-  } else {
-    // No-dash format: "Month Day EventText" — extract the date prefix.
-    // The full body is kept as-is; splitting is handled in fetchCandidates.
-    const noDashDate = extractNoDashDate(text);
-    if (noDashDate) datePrefix = noDashDate;
   }
   body = body.replace(/^(c\.|ca\.|circa)\s+/i, "");
   const sentenceMatches = body.match(/[^.!?]+[.!?]+(\s|$)/g);
@@ -297,10 +352,10 @@ async function fetchCandidates(year) {
       }
     }
 
-    const parsed = collected.flatMap(({ li, section }) => {
+    const parsed = collected.map(({ li, section }) => {
       li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
       const text = li.textContent.trim();
-      if (!text || text.length < 15) return [];
+      if (!text || text.length < 15) return null;
       const boldEl = li.querySelector("b");
       const boldText = boldEl ? boldEl.textContent.trim() : null;
       const hasBold = !!boldText;
@@ -333,27 +388,7 @@ async function fetchCandidates(year) {
         }
       }
       if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
-
-      const base = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
-
-      // If the raw text is the Wikipedia no-dash daily-list format
-      // ("Month Day Event1. Event2."), split it into separate events so each
-      // bullet point is ranked and displayed independently.
-      const splits = splitNoDashBody(text, base.datePrefix);
-      if (splits && splits.length >= 2) {
-        return splits.map((s, i) => ({
-          ...base,
-          body: s.body,
-          datePrefix: s.datePrefix,
-          // First split inherits bold/italic/primaryWiki; subsequent splits get
-          // a title derived from their own body text and the next available link.
-          title: i === 0 ? base.title : titleFromBody(s.body),
-          wiki: i === 0 ? primaryWiki : (nonGenericLinks[i] || primaryWiki),
-          hasBold: i === 0 ? hasBold : false,
-        }));
-      }
-
-      return [base];
+      return parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
     }).filter(Boolean);
 
     const seen = new Set();
@@ -385,16 +420,25 @@ async function computeYear(year) {
   }
 
   const scored = result.candidates.map((c) => {
-    // Score = MAX pageview among the bullet's non-generic links.
-    // (Previously used SUM, which inadvertently rewarded multi-topic bullets
-    // that combined several events into one list item. Using MAX eliminates
-    // that length bias — a bullet scores by its single most-visited subject,
-    // regardless of how many other topics it mentions.)
+    // Base score: MAX pageview across non-generic linked articles.
+    // MAX avoids rewarding multi-event bullets over clean single-event ones.
     const linkScores = (c.allLinks || [])
       .filter((link) => !isGenericSlug(link))
       .map((link) => pageviews[link] || 0);
     let score = linkScores.length > 0 ? Math.max(...linkScores) : 0;
+
+    // Dedicated-event multiplier on the primary slug:
+    //   Generic slug (Iran, United_States) → 0.3× (penalized)
+    //   Neutral slug (person, org)         → 1.0×
+    //   Year in slug (2003_invasion_of_Iraq)→ 2.0×
+    //   Dedicated event (Battle_of_Hastings)→ 3.0×
+    //   Strong title match                 → additional 2.5×
+    const primaryMultiplier = eventSlugScore(c.wiki, c.body);
+    score = Math.round(score * primaryMultiplier);
+
+    // Bold text = Wikipedia editors marked this as the main subject
     if (c.hasBold) score = Math.round(score * 1.5);
+
     return { ...c, _score: score };
   });
 
@@ -424,7 +468,7 @@ async function main() {
   await fs.mkdir(outDir, { recursive: true });
 
   // Load curated title overrides (body text → title).
-  // These preserve manually edited titles across rebuilds.
+  // Preserves manually edited titles across rebuilds.
   // Format: { "year": { "body text": "Curated Title", ... }, ... }
   let titleOverrides = {};
   const overridesPath = args.overrides ?? "scripts/title-overrides.json";
@@ -472,10 +516,12 @@ async function main() {
     }
     return false;
   };
-  // A body longer than 600 chars is a signal that multiple events were combined.
-  // The no-dash splitter in fetchCandidates handles most of these at parse time,
-  // but this catches any remaining dash-separated combined entries or edge cases
-  // that slip through — so the year gets re-fetched on the next build run.
+  // A body longer than 800 chars usually means multiple events were combined
+  // into one Wikipedia bullet (e.g. Apollo 1 fire + Outer Space Treaty signing
+  // both squeezed into one January 27 entry). 800 is a relaxed threshold —
+  // some legitimate long entries exist, but true combined entries usually
+  // exceed this. The MAX scoring change should also help demote combined
+  // entries in favor of cleaner single-event ones.
   const hasOversizedBody = (events) =>
     events.some((e) => e && typeof e.body === "string" && e.body.length > 600);
   for (let y = START_YEAR; y <= END_YEAR; y++) {
@@ -486,7 +532,7 @@ async function main() {
       && existing_entry.every((e) => e && !hasBadTitle(e.title))
       && !hasDuplicateTitles(existing_entry)
       && !hasOversizedBody(existing_entry);
-    if (!isGood) years.push(y);
+    if (FORCE_REBUILD || !isGood) years.push(y);
   }
 
   console.log(`${years.length} years to compute`);
@@ -498,9 +544,10 @@ async function main() {
     try {
       const events = await computeYear(year);
 
-      // Apply curated title overrides: if an event's body text matches an entry
-      // in title-overrides.json, replace the auto-generated title with the
-      // manually curated one. This preserves our edits across rebuilds.
+      // Apply curated title overrides: match by body text, replace title.
+      // If the body changed (Wikipedia rewrote the bullet, or a different
+      // event now ranks top), the override simply won't match — the new
+      // event gets an auto-generated title which you can then curate.
       if (events && titleOverrides[String(year)]) {
         const yearOverrides = titleOverrides[String(year)];
         for (const event of events) {
