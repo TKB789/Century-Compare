@@ -979,6 +979,20 @@ export default function CenturyCompare() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sigPage]);
 
+  // Keep re-scrolling to the target year for 2 seconds as other blocks
+  // finish loading and shift the layout. Uses "auto" instead of "smooth"
+  // because smooth scrolling fights itself when called repeatedly.
+  const scrollToYear = (y) => {
+    const targetId = `year-${y}`;
+    const start = Date.now();
+    const tick = () => {
+      const el = document.getElementById(targetId);
+      if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
+      if (Date.now() - start < 2000) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
   const submit = (e) => {
     e?.preventDefault();
     const n = parseYearInput(input);
@@ -986,12 +1000,7 @@ export default function CenturyCompare() {
       setAnchor(n);
       setExpanded(null);
       setShowDeepTime(false);
-      // Scroll to anchor after render
-      setTimeout(() => {
-        const el = document.getElementById(`year-${n}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        else window.scrollTo({ top: 0, behavior: "smooth" });
-      }, 100);
+      setTimeout(() => scrollToYear(n), 50);
     }
   };
 
@@ -1000,11 +1009,7 @@ export default function CenturyCompare() {
     setAnchor(y);
     setExpanded(null);
     setShowDeepTime(false);
-    setTimeout(() => {
-      const el = document.getElementById(`year-${y}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      else window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 100);
+    setTimeout(() => scrollToYear(y), 50);
   };
 
   return (
