@@ -1005,7 +1005,8 @@ export default function CenturyCompare() {
     requestAnimationFrame(tick);
   };
 
-  // Search the preloaded events.json for keyword matches across title + body
+  // Search the preloaded events.json for keyword matches across title + body.
+  // Returns every matching event individually — multiple per year if applicable.
   const runKeywordSearch = async (query) => {
     const q = query.trim().toLowerCase();
     if (!q) return;
@@ -1017,16 +1018,15 @@ export default function CenturyCompare() {
         const inBody = (e.body || "").toLowerCase().includes(q);
         if (inTitle || inBody) {
           hits.push({ year: parseInt(yearStr, 10), event: e, inTitle });
-          break; // one hit per year is enough — user jumps to that year
         }
       }
     }
-    // Sort: title matches first, then by absolute year (newest first)
+    // Sort: title matches first, then newest year first
     hits.sort((a, b) => {
       if (a.inTitle !== b.inTitle) return a.inTitle ? -1 : 1;
       return b.year - a.year;
     });
-    setSearchResults(hits.slice(0, 20));
+    setSearchResults(hits.slice(0, 50));
     setSearchQuery(query.trim());
   };
 
@@ -1115,8 +1115,8 @@ export default function CenturyCompare() {
               <Search size={13} style={{ color: "#d4a856" }} />
               <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
                 {searchResults.length > 0
-                  ? `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""} for "${searchQuery}"`
-                  : `No results for "${searchQuery}"`}
+                  ? `${searchResults.length} event${searchResults.length !== 1 ? "s" : ""} matching "${searchQuery}"`
+                  : `No events matching "${searchQuery}"`}
               </span>
             </div>
             <button
