@@ -1876,6 +1876,7 @@ function YearBrowser({ onSelect, currentAnchor }) {
     { label: "2nd Century BCE", years: Array.from({length: 100}, (_, i) => -(100 + i)) },
     { label: "3rd Century BCE", years: Array.from({length: 100}, (_, i) => -(200 + i)) },
     { label: "4th Century BCE", years: Array.from({length: 100}, (_, i) => -(300 + i)) },
+    { label: "5th Century BCE", years: Array.from({length: 100}, (_, i) => -(400 + i)) },
     { label: "Ancient (500–3000 BCE)", years: [-500,-600,-700,-800,-900,-1000,-1100,-1200,-1274,-1300,-1351,-1400,-1500,-1550,-1600,-1700,-1754,-1800,-1900,-2000,-2100,-2200,-2350,-2400,-2500,-2560,-2600,-2700,-2800,-2900,-3000] },
   ];
   const [openGroup, setOpenGroup] = useState(null);
