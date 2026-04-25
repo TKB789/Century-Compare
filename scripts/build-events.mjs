@@ -101,15 +101,78 @@ function humanizeSlug(slug) {
   return decodeURIComponent(slug).replace(/_/g, " ").replace(/\s*\([^)]+\)\s*/g, " ").trim();
 }
 
+// Sentences that continue a prior event rather than starting a new one.
+// Wikipedia bullet points often have 2-sentence descriptions of a single event.
+const CONTINUATION_RE = /^(He |She |They |His |Her |Their |Its |It |This |That |These |Those |On (her|his|their|its|the) |Unable |Despite |However|Although|After (his|her|their|the|a )|Before (his|her|their|the)|During (his|her|their|the)|Following (his|her|their|the|this)|As a result|Subsequently|Later,|Eventually|In addition|Furthermore|The (?:same|following|next|previous)|Both |All |Some |Several |which |who |where |whose |having |According to|In response|As part of)/;
+
+// Extract a leading "Month Day" date from text (no dash required).
+// e.g. "January 1 Bulgaria..." → "January 1"
+function extractNoDashDate(text) {
+  const m = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?)\s+[A-Z]/);
+  return m ? m[1].trim() : null;
+}
+
+// Build a clean title from a body sentence (strips leading date prefix).
+function titleFromBody(body) {
+  const clean = body
+    .replace(/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?\s+/, "")
+    .replace(/^\d{4}\s*[-–]?\s*/, "")
+    .trim();
+  const words = clean.split(/\s+/);
+  let snippet = words.slice(0, 12).join(" ");
+  const breakIdx = snippet.search(/[,;(]/);
+  if (breakIdx > 0 && snippet.slice(0, breakIdx).split(/\s+/).length >= 4) {
+    snippet = snippet.slice(0, breakIdx);
+  }
+  return snippet.trim().replace(/[.,;:(]+$/, "");
+}
+
+// Split a Wikipedia no-dash daily-list body ("Month Day Event1. Event2.")
+// into separate event objects. Returns an array of { body, datePrefix } or null
+// if the text is a single event.
+function splitNoDashBody(text, baseDatePrefix) {
+  // Only attempt split on the no-dash format
+  if (!/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+[A-Z]/.test(text)) return null;
+
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/);
+  if (sentences.length < 2) return null;
+
+  const groups = [];
+  let current = [sentences[0]];
+  let currentDate = baseDatePrefix || extractNoDashDate(sentences[0]);
+
+  for (const s of sentences.slice(1)) {
+    if (CONTINUATION_RE.test(s)) {
+      current.push(s);
+    } else {
+      groups.push({ sentences: current, date: currentDate });
+      current = [s];
+      const newDate = extractNoDashDate(s);
+      if (newDate) currentDate = newDate;
+    }
+  }
+  if (current.length) groups.push({ sentences: current, date: currentDate });
+  if (groups.length < 2) return null;
+
+  return groups.map((g) => ({ body: g.sentences.join(" ").trim(), datePrefix: g.date }));
+}
+
 function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText, italicText, hasBold) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   text = text.replace(/^(c\.|ca\.|circa)\s+/i, "");
+
+  // Try the standard dash-separated date format first: "Month Day – Event"
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
   let datePrefix = null;
   let body = text;
   if (dateMatch) {
     datePrefix = dateMatch[1].trim();
     body = dateMatch[2].trim();
+  } else {
+    // No-dash format: "Month Day EventText" — extract the date prefix.
+    // The full body is kept as-is; splitting is handled in fetchCandidates.
+    const noDashDate = extractNoDashDate(text);
+    if (noDashDate) datePrefix = noDashDate;
   }
   body = body.replace(/^(c\.|ca\.|circa)\s+/i, "");
   const sentenceMatches = body.match(/[^.!?]+[.!?]+(\s|$)/g);
@@ -234,10 +297,10 @@ async function fetchCandidates(year) {
       }
     }
 
-    const parsed = collected.map(({ li, section }) => {
+    const parsed = collected.flatMap(({ li, section }) => {
       li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
       const text = li.textContent.trim();
-      if (!text || text.length < 15) return null;
+      if (!text || text.length < 15) return [];
       const boldEl = li.querySelector("b");
       const boldText = boldEl ? boldEl.textContent.trim() : null;
       const hasBold = !!boldText;
@@ -270,7 +333,27 @@ async function fetchCandidates(year) {
         }
       }
       if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
-      return parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
+
+      const base = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
+
+      // If the raw text is the Wikipedia no-dash daily-list format
+      // ("Month Day Event1. Event2."), split it into separate events so each
+      // bullet point is ranked and displayed independently.
+      const splits = splitNoDashBody(text, base.datePrefix);
+      if (splits && splits.length >= 2) {
+        return splits.map((s, i) => ({
+          ...base,
+          body: s.body,
+          datePrefix: s.datePrefix,
+          // First split inherits bold/italic/primaryWiki; subsequent splits get
+          // a title derived from their own body text and the next available link.
+          title: i === 0 ? base.title : titleFromBody(s.body),
+          wiki: i === 0 ? primaryWiki : (nonGenericLinks[i] || primaryWiki),
+          hasBold: i === 0 ? hasBold : false,
+        }));
+      }
+
+      return [base];
     }).filter(Boolean);
 
     const seen = new Set();
@@ -340,6 +423,19 @@ async function main() {
   const outDir = path.dirname(OUTPUT_PATH);
   await fs.mkdir(outDir, { recursive: true });
 
+  // Load curated title overrides (body text → title).
+  // These preserve manually edited titles across rebuilds.
+  // Format: { "year": { "body text": "Curated Title", ... }, ... }
+  let titleOverrides = {};
+  const overridesPath = args.overrides ?? "scripts/title-overrides.json";
+  try {
+    const raw = await fs.readFile(overridesPath, "utf-8");
+    titleOverrides = JSON.parse(raw);
+    console.log(`Loaded title overrides for ${Object.keys(titleOverrides).length} years`);
+  } catch {
+    console.log("No title-overrides.json found — titles will be auto-generated");
+  }
+
   // Load existing events.json for resumability
   let existing = {};
   try {
@@ -376,14 +472,12 @@ async function main() {
     }
     return false;
   };
-  // A body longer than 800 chars usually means multiple events were combined
-  // into one Wikipedia bullet (e.g. Apollo 1 fire + Outer Space Treaty signing
-  // both squeezed into one January 27 entry). 800 is a relaxed threshold —
-  // some legitimate long entries exist, but true combined entries usually
-  // exceed this. The MAX scoring change should also help demote combined
-  // entries in favor of cleaner single-event ones.
+  // A body longer than 600 chars is a signal that multiple events were combined.
+  // The no-dash splitter in fetchCandidates handles most of these at parse time,
+  // but this catches any remaining dash-separated combined entries or edge cases
+  // that slip through — so the year gets re-fetched on the next build run.
   const hasOversizedBody = (events) =>
-    events.some((e) => e && typeof e.body === "string" && e.body.length > 800);
+    events.some((e) => e && typeof e.body === "string" && e.body.length > 600);
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
     const existing_entry = existing[String(y)];
@@ -403,6 +497,18 @@ async function main() {
   for (const year of years) {
     try {
       const events = await computeYear(year);
+
+      // Apply curated title overrides: if an event's body text matches an entry
+      // in title-overrides.json, replace the auto-generated title with the
+      // manually curated one. This preserves our edits across rebuilds.
+      if (events && titleOverrides[String(year)]) {
+        const yearOverrides = titleOverrides[String(year)];
+        for (const event of events) {
+          const override = yearOverrides[event.body?.trim()];
+          if (override) event.title = override;
+        }
+      }
+
       existing[String(year)] = events || [];
       done++;
       const elapsed = (Date.now() - startTime) / 1000;
