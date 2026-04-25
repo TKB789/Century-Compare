@@ -618,81 +618,17 @@ function humanizeSlug(slug) {
   return s;
 }
 
-// Sentences that continue a prior event rather than starting a new one.
-// Wikipedia bullet points often have 2-sentence descriptions of a single event.
-const CONTINUATION_RE = /^(He |She |They |His |Her |Their |Its |It |This |That |These |Those |On (her|his|their|its|the) |Unable |Despite |However|Although|After (his|her|their|the|a )|Before (his|her|their|the)|During (his|her|their|the)|Following (his|her|their|the|this)|As a result|Subsequently|Later,|Eventually|In addition|Furthermore|The (?:same|following|next|previous)|Both |All |Some |Several |which |who |where |whose |having |According to|In response|As part of)/;
-
-// Extract a leading "Month Day" date from text (no dash required).
-// e.g. "January 1 Bulgaria..." → "January 1"
-function extractNoDashDate(text) {
-  const m = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?)\s+[A-Z]/);
-  return m ? m[1].trim() : null;
-}
-
-// Build a clean title from a body sentence (strips leading date prefix).
-function titleFromBody(body) {
-  const clean = body
-    .replace(/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:[-–]\d{1,2})?(?:\s*\([^)]*\))?\s+/, "")
-    .replace(/^\d{4}\s*[-–]?\s*/, "")
-    .trim();
-  const words = clean.split(/\s+/);
-  let snippet = words.slice(0, 12).join(" ");
-  const breakIdx = snippet.search(/[,;(]/);
-  if (breakIdx > 0 && snippet.slice(0, breakIdx).split(/\s+/).length >= 4) {
-    snippet = snippet.slice(0, breakIdx);
-  }
-  return snippet.trim().replace(/[.,;:(]+$/, "");
-}
-
-// Split a Wikipedia no-dash daily-list body ("Month Day Event1. Event2.")
-// into separate event objects. Returns an array of { body, datePrefix } or null
-// if the text is a single event.
-function splitNoDashBody(text, baseDatePrefix) {
-  // Only attempt split on the no-dash format
-  if (!/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+[A-Z]/.test(text)) return null;
-
-  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/);
-  if (sentences.length < 2) return null;
-
-  const groups = [];
-  let current = [sentences[0]];
-  let currentDate = baseDatePrefix || extractNoDashDate(sentences[0]);
-
-  for (const s of sentences.slice(1)) {
-    if (CONTINUATION_RE.test(s)) {
-      current.push(s);
-    } else {
-      groups.push({ sentences: current, date: currentDate });
-      current = [s];
-      const newDate = extractNoDashDate(s);
-      if (newDate) currentDate = newDate;
-    }
-  }
-  if (current.length) groups.push({ sentences: current, date: currentDate });
-  if (groups.length < 2) return null;
-
-  return groups.map((g) => ({ body: g.sentences.join(" ").trim(), datePrefix: g.date }));
-}
-
 function parseWikiEvent(raw, primaryWiki, allLinks, sectionAnchor, boldText) {
   let text = raw.trim().replace(/\s+/g, " ").replace(/\[[^\]]*\]/g, "").trim();
   // Strip leading "c." or "circa" — these are approximation markers, not content
   text = text.replace(/^(c\.|ca\.|circa)\s+/i, "");
-
-  // Try the standard dash-separated date format first: "Month Day – Event"
   const dateMatch = text.match(/^((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:\s*[-–—]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)?\s*\d{1,2})?)\s*[-–—:]\s*(.+)$/i);
   let datePrefix = null;
   let body = text;
   if (dateMatch) {
     datePrefix = dateMatch[1].trim();
     body = dateMatch[2].trim();
-  } else {
-    // No-dash format: "Month Day EventText" — extract the date prefix
-    const noDashDate = extractNoDashDate(text);
-    if (noDashDate) datePrefix = noDashDate;
-    // body stays as full text (splitting handled in fetchWikipediaCandidates)
   }
-
   // Also strip leading "c." on body after date stripping
   body = body.replace(/^(c\.|ca\.|circa)\s+/i, "");
   // Cap body at 3 sentences for readability
@@ -787,10 +723,10 @@ async function fetchWikipediaCandidates(year) {
         }
       }
 
-      const parsed = collected.flatMap(({ li, section }) => {
+      const parsed = collected.map(({ li, section }) => {
         li.querySelectorAll(".mw-editsection, sup.reference, sup.noprint, .mw-ext-cite-error, style").forEach((el) => el.remove());
         const text = li.textContent.trim();
-        if (!text || text.length < 15) return [];
+        if (!text || text.length < 15) return null;
 
         // Extract bolded text — Wikipedia uses <b> to highlight the main subject
         // of an event entry. This gives us a clean, short title.
@@ -818,26 +754,8 @@ async function fetchWikipediaCandidates(year) {
         }
         if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
 
-        const base = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
-
-        // If the raw text is the Wikipedia no-dash daily-list format
-        // ("Month Day Event1. Event2."), split it into separate events so each
-        // bullet point is ranked and displayed independently.
-        const splits = splitNoDashBody(text, base.datePrefix);
-        if (splits && splits.length >= 2) {
-          return splits.map((s, i) => ({
-            ...base,
-            body: s.body,
-            datePrefix: s.datePrefix,
-            // Only the first split inherits the bold/primary wiki; the rest get
-            // a title derived from their own body text.
-            title: i === 0 ? base.title : titleFromBody(s.body),
-            wiki: i === 0 ? primaryWiki : nonGenericLinks[i] || primaryWiki,
-            hasBold: i === 0 ? hasBold : false,
-          }));
-        }
-
-        return [{ ...base, hasBold }];
+        const parsed = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
+        return { ...parsed, hasBold };
       }).filter(Boolean);
 
       const seen = new Set();
@@ -1010,6 +928,18 @@ export default function CenturyCompare() {
   const [activeCat, setActiveCat] = useState("all"); // "all" | category.id
   // Previews: year -> { loading, preview: string|null }
   const [previews, setPreviews] = useState({});
+  // Keyword search results: null = no search active, [] = no results, [...] = hits
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Back-to-top visibility
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Show back-to-top button after scrolling down 400px
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
@@ -1075,15 +1005,53 @@ export default function CenturyCompare() {
     requestAnimationFrame(tick);
   };
 
+  // Search the preloaded events.json for keyword matches across title + body
+  const runKeywordSearch = async (query) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const preloaded = await loadPreloadedEvents();
+    const hits = [];
+    for (const [yearStr, events] of Object.entries(preloaded)) {
+      for (const e of events || []) {
+        const inTitle = (e.title || "").toLowerCase().includes(q);
+        const inBody = (e.body || "").toLowerCase().includes(q);
+        if (inTitle || inBody) {
+          hits.push({ year: parseInt(yearStr, 10), event: e, inTitle });
+          break; // one hit per year is enough — user jumps to that year
+        }
+      }
+    }
+    // Sort: title matches first, then by absolute year (newest first)
+    hits.sort((a, b) => {
+      if (a.inTitle !== b.inTitle) return a.inTitle ? -1 : 1;
+      return b.year - a.year;
+    });
+    setSearchResults(hits.slice(0, 20));
+    setSearchQuery(query.trim());
+  };
+
   const submit = (e) => {
     e?.preventDefault();
-    const n = parseYearInput(input);
+    const trimmed = input.trim();
+    const n = parseYearInput(trimmed);
     if (n !== null && n >= -3000 && n <= 2100 && n !== 0) {
+      // Valid year — clear any search and navigate
+      setSearchResults(null);
+      setSearchQuery("");
       setAnchor(n);
       setExpanded(null);
       setShowDeepTime(false);
       setTimeout(() => scrollToYear(n), 50);
+    } else if (trimmed.length >= 2) {
+      // Not a year — treat as keyword search
+      runKeywordSearch(trimmed);
     }
+  };
+
+  const clearSearch = () => {
+    setSearchResults(null);
+    setSearchQuery("");
+    setInput(String(anchor));
   };
 
   const jumpTo = (y) => {
@@ -1107,7 +1075,7 @@ export default function CenturyCompare() {
           A Century <em className="italic font-normal" style={{ color: "#d4a856" }}>Apart</em>
         </h1>
         <p className="mt-2 text-xs md:text-sm" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-          Enter a year. Events ranked by Wikipedia pageview popularity.
+          Enter a year or an event. Events ranked by Wikipedia pageview popularity.
         </p>
       </header>
 
@@ -1120,7 +1088,7 @@ export default function CenturyCompare() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="e.g. 1969 or 44 BCE"
+              placeholder="e.g. 1969, 44 BCE, or 'moon landing'"
               className="flex-1 outline-none text-lg font-semibold bg-transparent py-2.5 min-w-0"
               style={{ fontFamily: "'Fraunces', serif", color: "#f5ead0" }}
             />
@@ -1138,6 +1106,58 @@ export default function CenturyCompare() {
           </button>
         </form>
       </div>
+
+      {/* Keyword Search Results */}
+      {searchResults !== null && (
+        <div className="px-5 md:px-12 py-4" style={{ borderBottom: "1px solid #3d3528", background: "#1e1810" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Search size={13} style={{ color: "#d4a856" }} />
+              <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
+                {searchResults.length > 0
+                  ? `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""} for "${searchQuery}"`
+                  : `No results for "${searchQuery}"`}
+              </span>
+            </div>
+            <button
+              onClick={clearSearch}
+              className="text-[10px] uppercase tracking-widest px-2 py-1 transition-all hover:brightness-125"
+              style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f", border: "1px solid #3d3528", borderRadius: "2px" }}
+            >
+              Clear
+            </button>
+          </div>
+          {searchResults.length === 0 ? (
+            <p className="text-xs" style={{ color: "#6c5a3a", fontFamily: "'JetBrains Mono', monospace" }}>
+              Try a different keyword — search covers event titles and descriptions in events.json.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {searchResults.map(({ year, event }) => (
+                <button
+                  key={year}
+                  onClick={() => { clearSearch(); jumpTo(year); }}
+                  className="text-left flex items-start gap-3 py-2 px-2.5 transition-all hover:brightness-125"
+                  style={{ background: "transparent", border: "1px solid #3d3528", borderRadius: "2px" }}
+                >
+                  <span className="text-sm font-bold shrink-0 w-20 pt-0.5" style={{ color: "#d4a856", fontFamily: "'Fraunces', serif" }}>
+                    {formatYear(year)}
+                  </span>
+                  <span className="text-xs leading-snug flex-1 min-w-0" style={{ color: "#d4c7a8", fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span style={{ color: "#f5ead0", fontWeight: 600 }}>{event.title}</span>
+                    {event.body && (
+                      <span className="block mt-0.5" style={{ color: "#9a8b6f" }}>
+                        {event.body.length > 100 ? event.body.slice(0, 100).replace(/\s+\S*$/, "") + "…" : event.body}
+                      </span>
+                    )}
+                  </span>
+                  <CornerDownRight size={13} className="shrink-0 mt-1" style={{ color: "#5c4a30" }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Significant Events — paginated, one per century */}
       <div className="px-5 md:px-12 py-5" style={{ borderBottom: "1px solid #3d3528" }}>
@@ -1335,6 +1355,30 @@ export default function CenturyCompare() {
       <footer className="px-5 md:px-12 py-6 text-xs" style={{ borderTop: "1px solid #3d3528", color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
         Events ranked by cumulative Wikipedia pageviews (last 60 days). Cached for 30 days per year.
       </footer>
+
+      {/* Back to top */}
+      {showBackToTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Back to top"
+          className="fixed bottom-6 right-6 flex items-center gap-1.5 px-3 py-2 transition-all hover:brightness-125 active:scale-95"
+          style={{
+            background: "linear-gradient(180deg, #d4a856 0%, #b88a3d 100%)",
+            color: "#1a1612",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            borderRadius: "2px",
+            boxShadow: "0 2px 0 #8a6428, 0 4px 16px #00000080",
+            zIndex: 50,
+          }}
+        >
+          <ArrowUp size={12} />
+          Top
+        </button>
+      )}
     </div>
   );
 }
