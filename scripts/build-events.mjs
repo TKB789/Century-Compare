@@ -376,12 +376,14 @@ async function main() {
     }
     return false;
   };
-  // A body longer than 500 chars usually means multiple events were combined
+  // A body longer than 800 chars usually means multiple events were combined
   // into one Wikipedia bullet (e.g. Apollo 1 fire + Outer Space Treaty signing
-  // both squeezed into one January 27 entry). Re-ranking with MAX scoring should
-  // push these down in favor of cleaner single-event entries.
+  // both squeezed into one January 27 entry). 800 is a relaxed threshold —
+  // some legitimate long entries exist, but true combined entries usually
+  // exceed this. The MAX scoring change should also help demote combined
+  // entries in favor of cleaner single-event ones.
   const hasOversizedBody = (events) =>
-    events.some((e) => e && typeof e.body === "string" && e.body.length > 500);
+    events.some((e) => e && typeof e.body === "string" && e.body.length > 800);
   for (let y = START_YEAR; y <= END_YEAR; y++) {
     if (y === 0) continue;
     const existing_entry = existing[String(y)];
@@ -409,8 +411,8 @@ async function main() {
       if (done % 10 === 0 || done === 1) {
         console.log(`  [${done}/${years.length}] ${year}: ${events ? events.length : 0} events (${elapsed.toFixed(0)}s elapsed, ~${Math.ceil(remaining / 60)}min left)`);
       }
-      // Save every 30 seconds so we don't lose progress
-      if (Date.now() - lastSave > 30_000) {
+      // Save every 15 seconds so we don't lose much progress if interrupted
+      if (Date.now() - lastSave > 15_000) {
         await fs.writeFile(OUTPUT_PATH, JSON.stringify(existing, null, 0));
         lastSave = Date.now();
       }
