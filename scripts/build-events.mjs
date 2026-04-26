@@ -182,7 +182,7 @@ function isGenericSlug(slug) {
 // eventSlugScore() returns a multiplier for the primary slug.
 // Applied in computeYear() before ranking candidates.
 // ===================================================================
-const DEDICATED_EVENT_RE = /^(Battle_of|Siege_of|Assassination_of|Murder_of|Execution_of|Death_of|Birth_of|Sinking_of|Bombing_of|Invasion_of|Capture_of|Fall_of|Burning_of|Destruction_of|Founding_of|Treaty_of|Convention_of|Council_of|Synod_of|Massacre_of|Raid_on|Attack_on|Revolt_of|Uprising_of|Revolution_of|Coronation_of|Abdication_of|Impeachment_of|Eruption_of|Earthquake_in|Fire_of|Declaration_of|Signing_of|Publication_of|Discovery_of|Launch_of|Opening_of|Completion_of|Trial_of|Acquittal_of|Conviction_of)/i;
+const DEDICATED_EVENT_RE = /^(Battle_of|Siege_of|Assassination_of|Murder_of|Execution_of|Death_of|Birth_of|Sinking_of|Bombing_of|Invasion_of|Capture_of|Fall_of|Burning_of|Destruction_of|Founding_of|Treaty_of|Convention_of|Council_of|Synod_of|Massacre_of|Raid_on|Attack_on|Revolt_of|Uprising_of|Revolution_of|Coronation_of|Abdication_of|Impeachment_of|Eruption_of|Earthquake_in|Fire_of|Declaration_of|Signing_of|Publication_of|Discovery_of|Launch_of|Opening_of|Completion_of|Trial_of|Acquittal_of|Conviction_of|Enabling_Act|Act_of_|Admission_of|Annexation_of|Unification_of|Partition_of|Dissolution_of|Establishment_of|Independence_of|Surrender_of)/i;
 
 const YEAR_IN_SLUG_RE = /_(1[0-9]{3}|20[0-2][0-9]|[1-9][0-9]{2})(_|$)/;
 const ANCIENT_YEAR_IN_SLUG_RE = /_(BC|BCE|AD|CE)$/i;
@@ -387,7 +387,22 @@ async function fetchCandidates(year) {
           }
         }
       }
-      if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
+      // If primaryWiki is generic (e.g. "President_of_the_United_States",
+      // "United_Kingdom"), fall through to the best non-generic link.
+      // This ensures the title and wiki slug reflect the specific event
+      // (e.g. "Enabling_Act_of_1889") rather than the broad topic page
+      // that Wikipedia happened to bold in the bullet.
+      if (!primaryWiki || isGenericSlug(primaryWiki)) {
+        primaryWiki = nonGenericLinks[0] || pageName;
+      }
+      // Final safety: if even nonGenericLinks[0] is generic (shouldn't happen
+      // often), keep walking until we find a dedicated-looking slug.
+      if (isGenericSlug(primaryWiki) && nonGenericLinks.length > 1) {
+        const dedicated = nonGenericLinks.find(
+          (s) => !isGenericSlug(s) && (DEDICATED_EVENT_RE.test(s) || YEAR_IN_SLUG_RE.test(s))
+        );
+        if (dedicated) primaryWiki = dedicated;
+      }
       return parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText, italicText, hasBold);
     }).filter(Boolean);
 
