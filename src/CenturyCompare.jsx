@@ -585,6 +585,9 @@ const GENERIC_SLUGS = new Set([
   "North_America", "South_America",
 ]);
 
+const DEDICATED_EVENT_RE = /^(Battle_of|Siege_of|Assassination_of|Murder_of|Execution_of|Death_of|Birth_of|Sinking_of|Bombing_of|Invasion_of|Capture_of|Fall_of|Burning_of|Destruction_of|Founding_of|Treaty_of|Convention_of|Council_of|Synod_of|Massacre_of|Raid_on|Attack_on|Revolt_of|Uprising_of|Revolution_of|Coronation_of|Abdication_of|Impeachment_of|Eruption_of|Earthquake_in|Fire_of|Declaration_of|Signing_of|Publication_of|Discovery_of|Launch_of|Opening_of|Completion_of|Trial_of|Acquittal_of|Conviction_of|Enabling_Act|Act_of_|Admission_of|Annexation_of|Unification_of|Partition_of|Dissolution_of|Establishment_of|Independence_of|Surrender_of)/i;
+const YEAR_IN_SLUG_RE = /_(1[0-9]{3}|20[0-2][0-9]|[1-9][0-9]{2})(_|$)/;
+
 function isGenericSlug(slug) {
   if (!slug) return true;
   if (GENERIC_SLUGS.has(slug)) return true;
@@ -744,7 +747,16 @@ async function fetchWikipediaCandidates(year) {
             }
           }
         }
-        if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
+        // If primaryWiki is generic, fall through to the best non-generic link
+        if (!primaryWiki || isGenericSlug(primaryWiki)) {
+          primaryWiki = nonGenericLinks[0] || pageName;
+        }
+        if (isGenericSlug(primaryWiki) && nonGenericLinks.length > 1) {
+          const dedicated = nonGenericLinks.find(
+            (s) => !isGenericSlug(s) && (DEDICATED_EVENT_RE.test(s) || YEAR_IN_SLUG_RE.test(s))
+          );
+          if (dedicated) primaryWiki = dedicated;
+        }
 
         const parsed = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
         return { ...parsed, hasBold };
