@@ -6,6 +6,15 @@ import { ExternalLink, Search, ArrowUp, ArrowDown, BookOpen, Infinity as Infinit
 // ===================================================================
 const ev = (title, detail, wiki) => ({ title, detail, wiki });
 const DEEP_TIME = [
+  { yearsAgo: 3000, label: "c. 1000 BCE", era: "Iron Age",
+    key: [
+      ev("Iron Working Spreads", "Technology of smelting iron spreads across Eurasia and Africa, enabling stronger tools and weapons than the preceding Bronze Age.", "Iron_Age"),
+      ev("Phoenician Alphabet", "A 22-letter script developed in the Levant becomes the ancestor of Greek, Latin, Arabic, and Hebrew writing.", "Phoenician_alphabet"),
+      ev("Composition of the Rigveda", "Sanskrit hymns transmitted orally for centuries are among the oldest surviving religious texts.", "Rigveda"),
+      ev("Bronze Age Collapse Aftermath", "Late Bronze Age civilizations of the eastern Mediterranean collapsed ~1177 BCE; survivors are rebuilding.", "Late_Bronze_Age_collapse"),
+      ev("Olmec Civilization Rises", "First major Mesoamerican culture flourishes in what is now Mexico.", "Olmecs"),
+    ],
+  },
   { yearsAgo: 5000, label: "c. 3000 BCE", era: "Dawn of Writing",
     key: [
       ev("Cuneiform Writing Emerges", "Sumerians in Mesopotamia develop wedge-shaped writing on clay tablets — the first known writing system.", "Cuneiform"),
@@ -118,7 +127,6 @@ const SIGNIFICANT_YEARS = [
   2024, 2020, 2001, 1989, 1969, 1945, 1918, 1905, 1876, 1859,
   1776, 1687, 1492, 1455, 1347, 1215, 1066, 1054, 960, 800,
   622, 476, 313, 100, -44, -221, -323, -500, -776,
-  -814, -1000, -1200, -1274, -1351, -1550, -1754, -2560,
 ];
 
 // ===================================================================
@@ -585,9 +593,6 @@ const GENERIC_SLUGS = new Set([
   "North_America", "South_America",
 ]);
 
-const DEDICATED_EVENT_RE = /^(Battle_of|Siege_of|Assassination_of|Murder_of|Execution_of|Death_of|Birth_of|Sinking_of|Bombing_of|Invasion_of|Capture_of|Fall_of|Burning_of|Destruction_of|Founding_of|Treaty_of|Convention_of|Council_of|Synod_of|Massacre_of|Raid_on|Attack_on|Revolt_of|Uprising_of|Revolution_of|Coronation_of|Abdication_of|Impeachment_of|Eruption_of|Earthquake_in|Fire_of|Declaration_of|Signing_of|Publication_of|Discovery_of|Launch_of|Opening_of|Completion_of|Trial_of|Acquittal_of|Conviction_of|Enabling_Act|Act_of_|Admission_of|Annexation_of|Unification_of|Partition_of|Dissolution_of|Establishment_of|Independence_of|Surrender_of)/i;
-const YEAR_IN_SLUG_RE = /_(1[0-9]{3}|20[0-2][0-9]|[1-9][0-9]{2})(_|$)/;
-
 function isGenericSlug(slug) {
   if (!slug) return true;
   if (GENERIC_SLUGS.has(slug)) return true;
@@ -747,16 +752,7 @@ async function fetchWikipediaCandidates(year) {
             }
           }
         }
-        // If primaryWiki is generic, fall through to the best non-generic link
-        if (!primaryWiki || isGenericSlug(primaryWiki)) {
-          primaryWiki = nonGenericLinks[0] || pageName;
-        }
-        if (isGenericSlug(primaryWiki) && nonGenericLinks.length > 1) {
-          const dedicated = nonGenericLinks.find(
-            (s) => !isGenericSlug(s) && (DEDICATED_EVENT_RE.test(s) || YEAR_IN_SLUG_RE.test(s))
-          );
-          if (dedicated) primaryWiki = dedicated;
-        }
+        if (!primaryWiki) primaryWiki = nonGenericLinks[0] || pageName;
 
         const parsed = parseWikiEvent(text, primaryWiki, allLinkSlugs, section, boldText);
         return { ...parsed, hasBold };
@@ -888,7 +884,7 @@ function buildStack(anchor) {
 
   // Centuries after anchor — walk forward until we reach current year + 1 future century
   // (cap at 10 to prevent absurd stacks for very ancient anchors)
-  const maxForward = Math.min(10, Math.ceil((cy + 100 - anchor) / 100));
+  const maxForward = Math.min(30, Math.ceil((cy + 100 - anchor) / 100));
   for (let i = maxForward; i >= 1; i--) {
     const target = anchor + 100 * i;
     if (target <= cy + 100) {
@@ -932,17 +928,6 @@ export default function CenturyCompare() {
   const [activeCat, setActiveCat] = useState("all"); // "all" | category.id
   // Previews: year -> { loading, preview: string|null }
   const [previews, setPreviews] = useState({});
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showYearBrowser, setShowYearBrowser] = useState(false);
-
-  // Back-to-top / bottom scroll tracking
-  useEffect(() => {
-    const onScroll = () => setShowBackToTop(window.scrollY > 400);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   const stack = useMemo(() => buildStack(anchor), [anchor]);
 
@@ -1008,49 +993,14 @@ export default function CenturyCompare() {
     requestAnimationFrame(tick);
   };
 
-  const runKeywordSearch = async (query) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return;
-    const preloaded = await loadPreloadedEvents();
-    const hits = [];
-    for (const [yearStr, events] of Object.entries(preloaded)) {
-      for (const e of events || []) {
-        const inTitle = (e.title || "").toLowerCase().includes(q);
-        const inBody = (e.body || "").toLowerCase().includes(q);
-        if (inTitle || inBody) {
-          hits.push({ year: parseInt(yearStr, 10), event: e, inTitle });
-        }
-      }
-    }
-    hits.sort((a, b) => {
-      if (a.inTitle !== b.inTitle) return a.inTitle ? -1 : 1;
-      return b.year - a.year;
-    });
-    setSearchResults(hits.slice(0, 50));
-    setSearchQuery(query.trim());
-    setShowYearBrowser(false);
-  };
-
-  const clearSearch = () => {
-    setSearchResults(null);
-    setSearchQuery("");
-    setInput(String(anchor));
-  };
-
   const submit = (e) => {
     e?.preventDefault();
-    const trimmed = input.trim();
-    const n = parseYearInput(trimmed);
+    const n = parseYearInput(input);
     if (n !== null && n >= -3000 && n <= 2100 && n !== 0) {
-      setSearchResults(null);
-      setSearchQuery("");
-      setShowYearBrowser(false);
       setAnchor(n);
       setExpanded(null);
       setShowDeepTime(false);
       setTimeout(() => scrollToYear(n), 50);
-    } else if (trimmed.length >= 2) {
-      runKeywordSearch(trimmed);
     }
   };
 
@@ -1075,7 +1025,7 @@ export default function CenturyCompare() {
           A Century <em className="italic font-normal" style={{ color: "#d4a856" }}>Apart</em>
         </h1>
         <p className="mt-2 text-xs md:text-sm" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-          Enter a year or an event. Events ranked by Wikipedia pageview popularity.
+          Enter a year. Events ranked by Wikipedia pageview popularity.
         </p>
       </header>
 
@@ -1088,7 +1038,7 @@ export default function CenturyCompare() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="e.g. 1969, 44 BCE, or 'moon landing'"
+              placeholder="e.g. 1969 or 44 BCE"
               className="flex-1 outline-none text-lg font-semibold bg-transparent py-2.5 min-w-0"
               style={{ fontFamily: "'Fraunces', serif", color: "#f5ead0" }}
             />
@@ -1104,79 +1054,8 @@ export default function CenturyCompare() {
             }}>
             Go
           </button>
-          <button type="button" onClick={() => { setShowYearBrowser((v) => !v); setSearchResults(null); }}
-            title="Browse all years"
-            className="px-3 text-xs uppercase tracking-widest font-semibold transition-all hover:brightness-125"
-            style={{
-              background: showYearBrowser ? "#d4a856" : "transparent",
-              color: showYearBrowser ? "#1a1612" : "#d4a856",
-              fontFamily: "'JetBrains Mono', monospace",
-              borderRadius: "2px",
-              border: "1px solid #5c4a30",
-            }}>
-            <Clock size={14} />
-          </button>
         </form>
       </div>
-
-      {/* Keyword search results */}
-      {searchResults !== null && (
-        <div className="px-5 md:px-12 py-4" style={{ borderBottom: "1px solid #3d3528", background: "#1e1810" }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-              {searchResults.length > 0
-                ? `${searchResults.length} event${searchResults.length !== 1 ? "s" : ""} matching "${searchQuery}"`
-                : `No events matching "${searchQuery}"`}
-            </span>
-            <button onClick={clearSearch} className="text-[10px] uppercase tracking-widest px-2 py-1 transition-all hover:brightness-125"
-              style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f", border: "1px solid #3d3528", borderRadius: "2px" }}>
-              Clear
-            </button>
-          </div>
-          {searchResults.length === 0 ? (
-            <p className="text-xs italic" style={{ color: "#6c5a3a", fontFamily: "'JetBrains Mono', monospace" }}>
-              Try a different keyword — search covers titles and descriptions.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-              {searchResults.map(({ year, event }, idx) => (
-                <button key={idx} onClick={() => { clearSearch(); jumpTo(year); }}
-                  className="text-left flex items-start gap-3 py-2 px-2.5 transition-all hover:brightness-125"
-                  style={{ background: "transparent", border: "1px solid #3d3528", borderRadius: "2px" }}>
-                  <span className="text-sm font-bold shrink-0 w-20 pt-0.5" style={{ color: "#d4a856", fontFamily: "'Fraunces', serif" }}>
-                    {formatYear(year)}
-                  </span>
-                  <span className="text-xs leading-snug flex-1 min-w-0" style={{ color: "#d4c7a8", fontFamily: "'JetBrains Mono', monospace" }}>
-                    <span style={{ color: "#f5ead0", fontWeight: 600 }}>{event.title}</span>
-                    {event.body && (
-                      <span className="block mt-0.5" style={{ color: "#9a8b6f" }}>
-                        {event.body.length > 100 ? event.body.slice(0, 100).replace(/\s+\S*$/, "") + "…" : event.body}
-                      </span>
-                    )}
-                  </span>
-                  <CornerDownRight size={13} className="shrink-0 mt-1" style={{ color: "#5c4a30" }} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Year Browser — scrollable list of all available years */}
-      {showYearBrowser && (
-        <div className="px-5 md:px-12 py-4" style={{ borderBottom: "1px solid #3d3528", background: "#1a1610" }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-              Browse all years
-            </span>
-            <button onClick={() => setShowYearBrowser(false)} className="text-[10px] uppercase tracking-widest px-2 py-1 transition-all hover:brightness-125"
-              style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f", border: "1px solid #3d3528", borderRadius: "2px" }}>
-              Close
-            </button>
-          </div>
-          <YearBrowser onSelect={(y) => { setShowYearBrowser(false); jumpTo(y); }} currentAnchor={anchor} />
-        </div>
-      )}
 
       {/* Significant Events — paginated, one per century */}
       <div className="px-5 md:px-12 py-5" style={{ borderBottom: "1px solid #3d3528" }}>
@@ -1356,8 +1235,6 @@ export default function CenturyCompare() {
             );
           })}
 
-          <CenturySpanningSection />
-
           <EdgeOfHistoryGateway open={showDeepTime} onToggle={() => setShowDeepTime((s) => !s)} />
 
           {showDeepTime && (
@@ -1376,41 +1253,6 @@ export default function CenturyCompare() {
       <footer className="px-5 md:px-12 py-6 text-xs" style={{ borderTop: "1px solid #3d3528", color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
         Events ranked by cumulative Wikipedia pageviews (last 60 days). Cached for 30 days per year.
       </footer>
-
-      {/* Scroll shortcut buttons — appear after scrolling 400px, stacked bottom-right */}
-      {showBackToTop && (
-        <div className="fixed bottom-6 right-6 flex flex-col gap-2" style={{ zIndex: 50 }}>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            aria-label="Back to top"
-            className="flex items-center justify-center gap-1.5 px-3 py-2 transition-all hover:brightness-125 active:scale-95"
-            style={{
-              background: "linear-gradient(180deg, #d4a856 0%, #b88a3d 100%)",
-              color: "#1a1612", fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em",
-              textTransform: "uppercase", borderRadius: "2px",
-              boxShadow: "0 2px 0 #8a6428, 0 4px 16px #00000080",
-            }}
-          >
-            <ArrowUp size={12} /> Top
-          </button>
-          <button
-            onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })}
-            aria-label="Go to bottom"
-            className="flex items-center justify-center gap-1.5 px-3 py-2 transition-all hover:brightness-125 active:scale-95"
-            style={{
-              background: "#2a2016", color: "#d4a856",
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em",
-              textTransform: "uppercase", borderRadius: "2px",
-              border: "1px solid #5c4a30",
-              boxShadow: "0 2px 0 #1a1208, 0 4px 16px #00000080",
-            }}
-          >
-            <ArrowDown size={12} /> Bottom
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -1798,149 +1640,13 @@ function ThemesSeeAlso({ event, accent, onJumpTo }) {
   );
 }
 
-
-// ===================================================================
-// CENTURY-SPANNING EVENTS — static, always visible before deep time.
-// ===================================================================
-const CENTURY_SPANNING = [
-  { title: "Iron Age & Spread of Iron Working", period: "c. 1200–500 BCE", detail: "Iron-smelting technology spreads across Eurasia and Africa following the Bronze Age Collapse, replacing bronze tools and weapons. Simultaneously, the 22-letter Phoenician alphabet emerges in the Levant — ancestor of Greek, Latin, Arabic, and Hebrew writing.", wiki: "Iron_Age" },
-  { title: "The Axial Age", period: "c. 800–200 BCE", detail: "Within a few centuries, humanity's greatest philosophical and religious traditions emerge independently across the world: Buddha in India, Confucius in China, Zoroaster in Persia, the Hebrew prophets in Judea, and Socrates, Plato, and Aristotle in Greece.", wiki: "Axial_Age" },
-  { title: "Pax Romana", period: "27 BCE – 180 CE", detail: "The Roman Empire's 200-year period of relative peace and stability under Augustus and his successors. At its height, Rome rules over 70 million people — roughly 20% of the world's population — connected by 400,000 km of roads.", wiki: "Pax_Romana" },
-  { title: "Spread of Christianity Across the Roman Empire", period: "c. 30–380 CE", detail: "From a small Jewish sect in Roman Judea, Christianity spreads across the Roman Empire within 350 years, becoming the state religion under Theodosius I in 380 CE. The religion would go on to shape the history of Europe, Africa, and the Americas.", wiki: "History_of_Christianity" },
-  { title: "The Silk Road", period: "c. 130 BCE – 1450 CE", detail: "A network of trade routes connecting China, Central Asia, India, the Middle East, and Europe. At its height under the Tang dynasty and Mongol Empire, it carries not just silk and spices but ideas, religions, technologies, and diseases — including the Black Death.", wiki: "Silk_Road" },
-  { title: "The Black Death", period: "1347–1353", detail: "Bubonic plague originating in Central Asia sweeps across Eurasia, killing an estimated 30–60% of Europe's population — up to 50 million people. The pandemic reshapes European society, accelerates the decline of feudalism, and contributes to labor reforms and the Renaissance.", wiki: "Black_Death" },
-  { title: "The Renaissance", period: "c. 1300–1600", detail: "A cultural and intellectual rebirth beginning in the Italian city-states, drawing on rediscovered classical texts. It produces Leonardo da Vinci, Michelangelo, Botticelli, Machiavelli, and Erasmus — and a new emphasis on humanism, observation, and individual expression.", wiki: "Renaissance" },
-  { title: "The Age of Exploration", period: "c. 1415–1600", detail: "European maritime nations — led by Portugal and Spain — map the world's oceans, connecting the Americas, Africa, and Asia to Europe for the first time. The Columbian Exchange of crops, animals, people, and diseases permanently transforms every continent.", wiki: "Age_of_Discovery" },
-  { title: "The Transatlantic Slave Trade", period: "c. 1500–1807", detail: "Approximately 12.5 million Africans are forcibly transported to the Americas over three centuries — the largest forced migration in history. The trade's legacy shapes the demographics, economies, and politics of Africa, the Americas, and Europe to this day.", wiki: "Atlantic_slave_trade" },
-  { title: "The Scientific Revolution", period: "c. 1543–1687", detail: "From Copernicus placing the Sun at the centre of the solar system to Newton's laws of motion and gravity, a century and a half of observation and mathematics transforms humanity's understanding of the natural world and lays the foundations of modern science.", wiki: "Scientific_Revolution" },
-  { title: "The Industrial Revolution", period: "c. 1760–1840", detail: "Beginning in Britain, the mechanization of production using coal-powered steam engines transforms agriculture, manufacturing, and transport. Cities explode in size; living standards rise but inequality deepens. The revolution spreads globally and defines the modern world.", wiki: "Industrial_Revolution" },
-  { title: "The Digital Revolution", period: "c. 1970–present", detail: "The shift from mechanical and analogue electronics to digital technology — personal computers, the internet, mobile phones, and artificial intelligence — transforms communication, commerce, warfare, and culture at a pace faster than any previous technological revolution.", wiki: "Digital_revolution" },
-];
-
-function CenturySpanningSection() {
-  const accent = "#c8a060";
-  return (
-    <section>
-      <div className="mb-4 pb-3" style={{ borderBottom: `2px solid ${accent}` }}>
-        <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <h2 className="text-3xl md:text-5xl font-bold leading-none tracking-tight" style={{ color: accent, fontStyle: "italic" }}>
-            Century-Spanning Events
-          </h2>
-          <div className="text-xs mt-0.5 text-right" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-            across recorded history
-          </div>
-        </div>
-      </div>
-      <ol className="space-y-0">
-        {CENTURY_SPANNING.map((event, i) => (
-          <li key={i} style={{ borderBottom: "1px solid #3d3528" }} className="py-4">
-            <div className="flex items-start gap-3">
-              <span className="text-xs mt-1.5 shrink-0 w-6" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#9a8b6f" }}>
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-widest mb-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-                  {event.period}
-                </div>
-                <h3 className="text-base md:text-lg font-semibold mb-1" style={{ color: "#f5ead0" }}>{event.title}</h3>
-                <p className="leading-relaxed text-[15px]" style={{ color: "#d4c7a8" }}>{event.detail}</p>
-                <div className="mt-2">
-                  <a href={`https://en.wikipedia.org/wiki/${event.wiki}`} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs uppercase tracking-widest hover:underline"
-                    style={{ fontFamily: "'JetBrains Mono', monospace", color: accent }}>
-                    Read more <ExternalLink size={12} />
-                  </a>
-                </div>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-// Year browser — grouped by era, scrollable, lets user pick any available year
-function YearBrowser({ onSelect, currentAnchor }) {
-  const groups = [
-    { label: "21st Century", years: Array.from({length: 27}, (_, i) => 2026 - i) },
-    { label: "20th Century", years: Array.from({length: 100}, (_, i) => 1999 - i) },
-    { label: "19th Century", years: Array.from({length: 100}, (_, i) => 1899 - i) },
-    { label: "18th Century", years: Array.from({length: 100}, (_, i) => 1799 - i) },
-    { label: "17th Century", years: Array.from({length: 100}, (_, i) => 1699 - i) },
-    { label: "16th Century", years: Array.from({length: 100}, (_, i) => 1599 - i) },
-    { label: "15th Century", years: Array.from({length: 100}, (_, i) => 1499 - i) },
-    { label: "14th Century", years: Array.from({length: 100}, (_, i) => 1399 - i) },
-    { label: "13th Century", years: Array.from({length: 100}, (_, i) => 1299 - i) },
-    { label: "12th Century", years: Array.from({length: 100}, (_, i) => 1199 - i) },
-    { label: "11th Century", years: Array.from({length: 100}, (_, i) => 1099 - i) },
-    { label: "10th Century", years: Array.from({length: 100}, (_, i) => 999 - i) },
-    { label: "9th Century", years: Array.from({length: 100}, (_, i) => 899 - i) },
-    { label: "8th Century", years: Array.from({length: 100}, (_, i) => 799 - i) },
-    { label: "7th Century", years: Array.from({length: 100}, (_, i) => 699 - i) },
-    { label: "6th Century", years: Array.from({length: 100}, (_, i) => 599 - i) },
-    { label: "5th Century", years: Array.from({length: 100}, (_, i) => 499 - i) },
-    { label: "4th Century", years: Array.from({length: 100}, (_, i) => 399 - i) },
-    { label: "3rd Century", years: Array.from({length: 100}, (_, i) => 299 - i) },
-    { label: "2nd Century", years: Array.from({length: 100}, (_, i) => 199 - i) },
-    { label: "1st Century", years: Array.from({length: 99}, (_, i) => 99 - i).filter(y => y > 0) },
-    { label: "1st Century BCE", years: Array.from({length: 99}, (_, i) => -(1 + i)) },
-    { label: "2nd Century BCE", years: Array.from({length: 100}, (_, i) => -(100 + i)) },
-    { label: "3rd Century BCE", years: Array.from({length: 100}, (_, i) => -(200 + i)) },
-    { label: "4th Century BCE", years: Array.from({length: 100}, (_, i) => -(300 + i)) },
-    { label: "5th Century BCE", years: Array.from({length: 100}, (_, i) => -(400 + i)) },
-    { label: "Ancient (500–3000 BCE)", years: [-500,-600,-700,-800,-900,-1000,-1100,-1200,-1274,-1300,-1351,-1400,-1500,-1550,-1600,-1700,-1754,-1800,-1900,-2000,-2100,-2200,-2350,-2400,-2500,-2560,-2600,-2700,-2800,-2900,-3000] },
-  ];
-  const [openGroup, setOpenGroup] = useState(null);
-
-  return (
-    <div className="max-h-80 overflow-y-auto space-y-1" style={{ scrollbarWidth: "thin" }}>
-      {groups.map((g) => (
-        <div key={g.label}>
-          <button
-            onClick={() => setOpenGroup(openGroup === g.label ? null : g.label)}
-            className="w-full text-left flex items-center justify-between px-2 py-1.5 transition-all hover:brightness-125"
-            style={{ background: "#2a2218", border: "1px solid #3d3528", borderRadius: "2px" }}
-          >
-            <span className="text-[10px] uppercase tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#d4a856" }}>
-              {g.label}
-            </span>
-            <span style={{ color: "#5c4a30", fontSize: "10px" }}>{openGroup === g.label ? "▲" : "▼"}</span>
-          </button>
-          {openGroup === g.label && (
-            <div className="flex flex-wrap gap-1 p-2" style={{ background: "#1a1610", border: "1px solid #2a2218", borderTop: "none", borderRadius: "0 0 2px 2px" }}>
-              {g.years.map((y) => (
-                <button
-                  key={y}
-                  onClick={() => onSelect(y)}
-                  className="text-[10px] px-1.5 py-0.5 transition-all hover:brightness-125"
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    background: y === currentAnchor ? "#d4a856" : "#2a2218",
-                    color: y === currentAnchor ? "#1a1612" : "#9a8b6f",
-                    border: "1px solid #3d3528",
-                    borderRadius: "2px",
-                    fontWeight: y === currentAnchor ? 700 : 400,
-                  }}
-                >
-                  {formatYear(y)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function EdgeOfHistoryGateway({ open, onToggle }) {
   return (
     <div className="py-6">
       <div className="text-center mb-4">
         <p className="text-sm italic" style={{ color: "#9a8b6f" }}>Here written records grow thin.</p>
         <p className="text-xs mt-1" style={{ color: "#5c4a30", fontFamily: "'JetBrains Mono', monospace" }}>
-          Beyond c. 3000 BCE lies archaeology, then geology, then the cosmos itself.
+          Beyond lies archaeology, then geology, then the cosmos itself.
         </p>
       </div>
       <button onClick={onToggle}
