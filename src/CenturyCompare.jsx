@@ -888,7 +888,7 @@ function buildStack(anchor) {
 
   // Centuries after anchor — walk forward until we reach current year + 1 future century
   // (cap at 10 to prevent absurd stacks for very ancient anchors)
-  const maxForward = Math.min(10, Math.ceil((cy + 100 - anchor) / 100));
+  const maxForward = Math.min(30, Math.ceil((cy + 100 - anchor) / 100));
   for (let i = maxForward; i >= 1; i--) {
     const target = anchor + 100 * i;
     if (target <= cy + 100) {
